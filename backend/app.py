@@ -85,7 +85,17 @@ async def startup_event():
                 except Exception as wh_err:
                     print(f"[!] Webhook registration failed: {wh_err}")
             else:
-                print("[!] RENDER_EXTERNAL_URL not set — webhook skipped")
+                # Local mode: no public URL → fall back to polling
+                print("[i] RENDER_EXTERNAL_URL not set — starting polling mode for local testing")
+                try:
+                    await ptb.bot.delete_webhook(drop_pending_updates=True)
+                    await ptb.updater.start_polling(
+                        allowed_updates=["message", "callback_query"],
+                        drop_pending_updates=True,
+                    )
+                    print("[✓] Telegram bot polling started (local mode)")
+                except Exception as poll_err:
+                    print(f"[!] Polling start failed: {poll_err}")
     except Exception as e:
         import traceback
         print(f"[!] Telegram bot startup error: {e}")
@@ -95,6 +105,8 @@ async def startup_event():
 async def shutdown_event():
     global _telegram_app
     if _telegram_app:
+        if _telegram_app.updater and _telegram_app.updater.running:
+            await _telegram_app.updater.stop()
         await _telegram_app.stop()
         await _telegram_app.shutdown()
 

@@ -376,6 +376,7 @@ async def _smart_answer(question: str, grade: str) -> str:
         intent = analysis.get("intent", "help")
         sentiment = analysis.get("sentiment", {})
         confusion = sentiment.get("confusion_level", 5)
+        frustration = sentiment.get("frustration_level", 5)
 
         # Build a tailored prompt based on NLP insight
         intent_instruction = {
