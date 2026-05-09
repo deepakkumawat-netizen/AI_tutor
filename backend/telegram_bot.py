@@ -8,6 +8,7 @@ import os
 import re
 import asyncio
 import logging
+import html as _html
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler,
@@ -18,6 +19,10 @@ from nlp_engine import nlp_engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def _esc(text: str) -> str:
+    """Escape text for Telegram HTML parse_mode."""
+    return _html.escape(str(text))
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
@@ -368,40 +373,84 @@ def _format_nlp_header(analysis: dict, grade: str) -> str:
     else:
         return f"{emoji} *Great question! Here's the answer:*"
 
-async def _smart_answer(question: str, grade: str) -> str:
-    """NLP-enhanced answer: analyze intent → tailor the response style."""
+async def _smart_answer(question: str, grade: str) -> tuple:
+    """NLP-enhanced answer: analyze intent → structured, grade-adaptive HTML response."""
     style = grade_style(grade or "Grade 6")
     try:
         analysis = await _nlp_analyze(question, f"{grade} student")
-        intent = analysis.get("intent", "help")
+        intent   = analysis.get("intent", "help")
         sentiment = analysis.get("sentiment", {})
-        confusion = sentiment.get("confusion_level", 5)
+        confusion   = sentiment.get("confusion_level", 5)
         frustration = sentiment.get("frustration_level", 5)
 
-        # Build a tailored prompt based on NLP insight
         intent_instruction = {
-            "explain":  f"Explain this clearly. {style}",
-            "debug":    f"Help identify and fix the issue step by step. {style}",
-            "practice": f"Give a helpful worked example. {style}",
-            "concept":  f"Explain the underlying concept with a relatable analogy. {style}",
-            "help":     f"Provide supportive, encouraging guidance. {style}",
+            "explain":  f"Explain this clearly with definition and example. {style}",
+            "debug":    f"Identify and fix the issue step by step with numbered steps. {style}",
+            "practice": f"Give a worked example with clear numbered steps. {style}",
+            "concept":  f"Explain the concept with a relatable real-life analogy then an example. {style}",
+            "help":     f"Provide encouraging, step-by-step guidance. {style}",
         }.get(intent, style)
 
         if confusion >= 7:
-            intent_instruction += " Use extra-simple language and break it into very small steps."
+            intent_instruction += " Use extra-simple language and small steps."
 
-        enriched_q = f"[Teaching style: {intent_instruction}]\n\nStudent question: {question}"
+        enriched_q = (
+            f"[Teaching style: {intent_instruction}]\n"
+            f"[Format your answer EXACTLY with these section headers — no markdown, no asterisks:\n"
+            f"ANSWER:\n<direct answer here>\n\n"
+            f"EXAMPLE:\n<clear example here>\n\n"
+            f"REMEMBER:\n<one key takeaway sentence>]\n\n"
+            f"Student question: {question}"
+        )
         result = await _quick(enriched_q, grade)
-        answer = result.get("answer", "Sorry, I couldn't answer that.")
+        raw    = result.get("answer", "Sorry, I couldn't answer that.")
 
-        # Add encouragement for frustrated/confused students
-        if frustration >= 7 or confusion >= 7:
-            answer += f"\n\n{grade_encourage(grade)}"
-
-        return answer, analysis
+        # Convert section headers to HTML
+        answer_html = _format_answer_html(raw, grade, frustration, confusion)
+        return answer_html, analysis
     except Exception:
         result = await _quick(question, grade)
-        return result.get("answer", "Sorry, couldn't answer that."), {}
+        return _esc(result.get("answer", "Sorry, couldn't answer that.")), {}
+
+
+def _format_answer_html(raw: str, grade: str, frustration: int = 5, confusion: int = 5) -> str:
+    """Convert AI plain-text sections to Telegram HTML."""
+    section_map = {
+        "ANSWER":   "💬 Answer",
+        "EXAMPLE":  "📌 Example",
+        "REMEMBER": "🔑 Remember",
+    }
+    lines   = raw.strip().split("\n")
+    parts   = []
+    current = []
+
+    def flush(header, body_lines):
+        body = "\n".join(l for l in body_lines if l.strip())
+        if body:
+            parts.append(f"<b>{header}</b>\n{_esc(body)}")
+
+    current_header = None
+    for line in lines:
+        stripped = line.strip().rstrip(":")
+        if stripped in section_map:
+            if current_header is not None:
+                flush(section_map[current_header], current)
+            current_header = stripped
+            current = []
+        else:
+            current.append(line)
+
+    if current_header is not None:
+        flush(section_map[current_header], current)
+
+    # Fallback: no sections found — just escape raw text
+    if not parts:
+        parts.append(_esc(raw))
+
+    if frustration >= 7 or confusion >= 7:
+        parts.append(grade_encourage(grade))
+
+    return "\n\n".join(parts)
 
 async def _send_main_menu(msg, s):
     emoji = grade_emoji(s.get("grade"))
@@ -754,12 +803,12 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         qs = s.get("qa_questions", [])
         if 0 <= idx < len(qs):
             question = qs[idx]
-            await msg.reply_text(f"⏳ {question}", parse_mode=None)
+            await msg.reply_text(f"⏳ <b>{_esc(question)}</b>", parse_mode="HTML")
             try:
-                answer, analysis = await _smart_answer(question, s["grade"] or "Grade 6")
-                if len(answer) > 3800:
-                    answer = answer[:3800] + "..."
-                await msg.reply_text(answer, parse_mode=None, reply_markup=kb_after_qa())
+                answer_html, analysis = await _smart_answer(question, s["grade"] or "Grade 6")
+                if len(answer_html) > 3800:
+                    answer_html = answer_html[:3800] + "..."
+                await msg.reply_text(answer_html, parse_mode="HTML", reply_markup=kb_after_qa())
             except Exception as e:
                 logger.error(f"qa answer error: {e}")
                 await msg.reply_text("Sorry, couldn't get an answer. Try again.", reply_markup=kb_after_qa())
@@ -767,29 +816,87 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ── Action functions ───────────────────────────────────────────────────────────
 
 async def _do_explain(msg, s):
-    topic = s["current_topic"]
-    grade = s["grade"] or "Grade 6"
-    emoji = grade_emoji(grade)
-    await msg.reply_text(f"{emoji} Explaining {topic}...", parse_mode=None)
+    topic   = s["current_topic"]
+    grade   = s["grade"] or "Grade 6"
+    subject = s["subject"] or ""
+    emoji   = grade_emoji(grade)
+    await msg.reply_text(
+        f"⏳ Explaining <b>{_esc(topic)}</b>...",
+        parse_mode="HTML",
+    )
     try:
-        result = await _explain(topic, grade, s["subject"], s["history"])
-        explanation = result.get("explanation", "No explanation available.")
-        if len(explanation) > 3800:
-            explanation = explanation[:3800] + "..."
+        # NLP: detect if student is confused → request simpler explanation
+        extra_simple = False
+        try:
+            nlp = await _nlp_analyze(f"explain {topic}", f"{grade} student")
+            confusion   = nlp.get("sentiment", {}).get("confusion_level", 5)
+            frustration = nlp.get("sentiment", {}).get("frustration_level", 5)
+            extra_simple = confusion >= 7
+        except Exception:
+            confusion = frustration = 5
+
+        result   = await _explain(topic, grade, subject, s["history"])
+        sections = result.get("sections", {})
+
+        definition  = (sections.get("definition") or "").strip()
+        key_points  = (sections.get("keyPoints")  or "").strip()
+        example     = (sections.get("example")    or "").strip()
+        summary     = (sections.get("summary")    or "").strip()
+
+        parts = [
+            f"<b>{emoji} {_esc(topic)}</b>",
+            f"<i>📚 {_esc(subject)} · {_esc(grade)}</i>",
+            "━━━━━━━━━━━━━━━━",
+        ]
+
+        if definition:
+            parts.append(f"\n📌 <b>Definition</b>\n{_esc(definition)}")
+
+        if key_points:
+            kp_lines = []
+            for kline in key_points.split("\n"):
+                kline = kline.strip().lstrip("•-* ").strip()
+                if not kline:
+                    continue
+                if ":" in kline:
+                    term, rest = kline.split(":", 1)
+                    kp_lines.append(f"• <b>{_esc(term.strip())}</b>:{_esc(rest)}")
+                else:
+                    kp_lines.append(f"• {_esc(kline)}")
+            if kp_lines:
+                parts.append(f"\n🔑 <b>Key Concepts</b>\n" + "\n".join(kp_lines))
+
+        if example:
+            parts.append(f"\n🌍 <b>Real-World Example</b>\n{_esc(example)}")
+
+        if summary:
+            parts.append(f"\n📝 <b>Summary</b>\n{_esc(summary)}")
+
+        # Fallback if sections didn't parse
+        if not (definition or key_points or example or summary):
+            raw = result.get("explanation", "No explanation available.")
+            parts = [
+                f"<b>{emoji} {_esc(topic)}</b>",
+                "━━━━━━━━━━━━━━━━",
+                _esc(raw[:3800]),
+            ]
+
+        if extra_simple:
+            parts.append("💡 <i>Take your time — this is a tricky topic. Ask me anything!</i>")
+        elif frustration >= 7:
+            parts.append(f"💪 <i>{_esc(grade_encourage(grade))}</i>")
+
+        html_text = "\n".join(parts)
+        if len(html_text) > 4000:
+            html_text = html_text[:4000] + "..."
+
         s["lessons_done"] = s.get("lessons_done", 0) + 1
-        s["history"].append({"role": "user", "content": f"Explain {topic}"})
-        s["history"].append({"role": "assistant", "content": explanation})
+        s["history"].append({"role": "user",      "content": f"Explain {topic}"})
+        s["history"].append({"role": "assistant",  "content": result.get("explanation", "")})
         s["history"] = s["history"][-10:]
-        # Send header and explanation separately to avoid Markdown parse errors
-        await msg.reply_text(
-            f"{emoji} {topic}\n{'━'*16}",
-            parse_mode=None,
-        )
-        await msg.reply_text(
-            explanation,
-            parse_mode=None,
-            reply_markup=kb_after_explain(),
-        )
+
+        await msg.reply_text(html_text, parse_mode="HTML", reply_markup=kb_after_explain())
+
     except Exception as e:
         logger.error(f"explain error: {e}")
         await msg.reply_text("Sorry, couldn't explain that topic. Please try again.", reply_markup=kb_home())

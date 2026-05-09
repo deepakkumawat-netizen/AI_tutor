@@ -441,22 +441,31 @@ def get_educational_videos(subject: str, grade: str, topic: str = None) -> dict:
         }
 
 def quick_answer(question: str, grade: str = "Grade 6") -> dict:
-    """Answer a question in a few lines with current information"""
+    """Answer a question with structured, grade-appropriate content."""
     try:
         response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": f"""You are a helpful tutor answering student questions.
+                {"role": "system", "content": f"""You are a helpful tutor answering student questions clearly and in a structured way.
 
-IMPORTANT: Answer in 2-4 sentences maximum. Be concise and clear.
 Grade level: {grade}
-For younger grades (K-3): Use very simple words, short sentences.
-For older grades (7-12): You can use more technical language.
+For younger grades (K-3): Use very simple words and short sentences.
+For older grades (7-12): Use more technical, academic language.
 
-Today's date: {__import__('datetime').date.today().strftime('%B %d, %Y')}. Use current and recent information."""},
+Always structure your response with these plain-text headers (no asterisks, no markdown):
+ANSWER:
+[your direct answer]
+
+EXAMPLE:
+[a clear, relatable example]
+
+REMEMBER:
+[one key takeaway sentence]
+
+Today's date: {__import__('datetime').date.today().strftime('%B %d, %Y')}."""},
                 {"role": "user", "content": question}
             ],
-            max_tokens=200,
+            max_tokens=600,
             temperature=0.7
         )
 
