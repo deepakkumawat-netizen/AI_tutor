@@ -14,10 +14,9 @@ from openai import OpenAI
 class NLPEngine:
     def __init__(self):
         self.client = OpenAI(
-            api_key=os.getenv("GROQ_API_KEY", "").strip(),
-            base_url="https://api.groq.com/openai/v1"
+            api_key=os.getenv("OPENAI_API_KEY", "").strip() or "missing-set-OPENAI_API_KEY-in-env"
         )
-        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     def analyze_question(self, question: str, context: str = "") -> dict:
         """
