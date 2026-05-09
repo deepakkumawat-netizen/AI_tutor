@@ -260,17 +260,24 @@ SUMMARY:
         print(f"❌ Error explaining topic '{topic}': {type(e).__name__}: {error_msg}")
         import traceback
         traceback.print_exc()
-        # Return error response with empty sections (prevents frontend hang)
+
+        if "insufficient_quota" in error_msg or "429" in error_msg:
+            user_msg = "⚠️ AI service is temporarily unavailable (quota exceeded). Please try again later."
+        elif "invalid_api_key" in error_msg or "401" in error_msg:
+            user_msg = "⚠️ AI service configuration error. Please contact support."
+        else:
+            user_msg = "Sorry, I couldn't explain this topic. Please try again."
+
         return {
             "topic": topic,
             "grade": grade,
             "subject": subject,
-            "explanation": f"Sorry, I couldn't explain this topic. Please try again.",
+            "explanation": user_msg,
             "sections": {
-                "definition": "Unable to load definition",
-                "keyPoints": "Unable to load key points",
-                "example": "Unable to load example",
-                "summary": "Unable to load summary"
+                "definition": user_msg,
+                "keyPoints": "",
+                "example": "",
+                "summary": ""
             },
             "gradeLevel": grade_num,
             "error": error_msg
@@ -337,7 +344,12 @@ def practice_question(subject: str, grade: str) -> dict:
         }
 
     except Exception as e:
-        return {"error": str(e)}
+        err = str(e)
+        if "insufficient_quota" in err or "429" in err:
+            msg = "⚠️ AI service quota exceeded. Please try again later."
+        else:
+            msg = f"Could not generate a practice question. Please try again."
+        return {"error": err, "question": msg, "subject": subject, "grade": grade}
 
 def get_educational_videos(subject: str, grade: str, topic: str = None) -> dict:
     """Get educational YouTube videos for a subject, topic, and grade level"""
