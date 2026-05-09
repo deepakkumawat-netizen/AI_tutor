@@ -13,10 +13,10 @@ from openai import OpenAI
 
 load_dotenv()
 
-# Get API key and strip any whitespace/newlines
-api_key = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-client = OpenAI(api_key=api_key)
+# Groq free API (OpenAI-compatible)
+api_key = os.getenv("GROQ_API_KEY", "").strip()
+OPENAI_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HARD-CODED LANGUAGE TOPICS

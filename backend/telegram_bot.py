@@ -868,14 +868,14 @@ async def _do_qa(msg, s, topic=None):
 
 # ── Flashcard & Test AI helpers ────────────────────────────────────────────────
 async def _fetch_flashcards(subject, grade, topic=None):
-    from mcp_server import client as openai_client
+    from mcp_server import client as openai_client, OPENAI_MODEL
     import json, re
     t = topic or subject
     raw = ""
     try:
         resp = await asyncio.to_thread(
             openai_client.chat.completions.create,
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "Return ONLY raw JSON. No markdown, no code fences, no explanation."},
                 {"role": "user", "content": (
@@ -899,14 +899,14 @@ async def _fetch_flashcards(subject, grade, topic=None):
         return []
 
 async def _fetch_test(subject, grade, topic=None):
-    from mcp_server import client as openai_client
+    from mcp_server import client as openai_client, OPENAI_MODEL
     import json, re
     t = topic or subject
     raw = ""
     try:
         resp = await asyncio.to_thread(
             openai_client.chat.completions.create,
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "Return ONLY raw JSON. No markdown, no code fences, no explanation."},
                 {"role": "user", "content": (

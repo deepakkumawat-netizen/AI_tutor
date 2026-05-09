@@ -287,10 +287,10 @@ async def api_practice_question(request: PracticeQuestionRequest):
 @app.post("/api/flashcards")
 async def generate_flashcards(request: FlashcardRequest):
     """Generate flashcards for a topic"""
-    from mcp_server import client as openai_client
+    from mcp_server import client as openai_client, OPENAI_MODEL
     try:
         resp = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[{
                 "role": "system",
                 "content": "You are an expert teacher creating flashcards. Return ONLY valid JSON, no markdown."
@@ -321,10 +321,10 @@ async def generate_flashcards(request: FlashcardRequest):
 @app.post("/api/practice-test")
 async def generate_practice_test(request: PracticeTestRequest):
     """Generate a multi-question practice test"""
-    from mcp_server import client as openai_client
+    from mcp_server import client as openai_client, OPENAI_MODEL
     try:
         resp = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[{
                 "role": "system",
                 "content": "You are an expert teacher creating multiple-choice tests. Return ONLY valid JSON, no markdown."
