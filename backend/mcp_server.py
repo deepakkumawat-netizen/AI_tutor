@@ -13,9 +13,9 @@ from openai import OpenAI
 
 load_dotenv()
 
-api_key = os.getenv("OPENAI_API_KEY", "").strip() or "missing-set-OPENAI_API_KEY-in-env"
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-client = OpenAI(api_key=api_key)
+api_key = os.getenv("GROQ_API_KEY", "").strip() or "missing-set-GROQ_API_KEY-in-env"
+OPENAI_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HARD-CODED LANGUAGE TOPICS
