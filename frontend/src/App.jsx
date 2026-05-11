@@ -1066,7 +1066,7 @@ function HomePage({ onStart }) {
             </div>
             <div>
               <label style={lbl}>Grade / Year</label>
-              <GradeDropdown value={grade} onChange={setGrade} />
+              <GradeDropdown value={grade} onChange={g => { setGrade(g); const n = parseInt(g.replace("Grade ","")); if (!isNaN(n)) setAge(String(n + 5)); }} />
             </div>
           </div>
 
@@ -3807,7 +3807,7 @@ function SubjectPage({ profile, onHome }) {
                     onMouseEnter={e => { e.target.style.background="var(--bg-tertiary)"; e.target.style.transform="translateY(-2px)"; e.target.style.boxShadow="0 4px 12px rgba(57,154,255,0.2)"; }}
                     onMouseLeave={e => { e.target.style.background="var(--bg-secondary)"; e.target.style.transform="translateY(0)"; e.target.style.boxShadow="none"; }}
                   >
-                    {CHIP_EMOJIS[i % CHIP_EMOJIS.length]} {topic}
+                    <span style={{ fontSize:"11px", fontWeight:"800", color:"rgba(57,154,255,0.7)", marginRight:"4px" }}>{i + 1}.</span>{CHIP_EMOJIS[i % CHIP_EMOJIS.length]} {topic}
                   </button>
                 ))}
               </div>
@@ -4389,45 +4389,6 @@ function SubjectPage({ profile, onHome }) {
                   </div>
                 )}
 
-                {/* Related Topics — outside sections block so it always shows */}
-                {msg.role === "bot" && !msg.streaming && relatedTopics.length > 0 && (
-                  <div style={{ padding:"0 20px 16px 20px" }}>
-                    <div style={{ borderTop:`1px solid rgba(57,154,255,0.2)`, paddingTop:"14px" }}>
-                      <div style={{ fontSize:"13px", fontWeight:"700", color:"var(--text-secondary)", marginBottom:"10px", letterSpacing:"0.5px" }}>
-                        🔗 Related Topics
-                      </div>
-                      <div style={{ display:"flex", flexWrap:"wrap", gap:"8px" }}>
-                        {relatedTopics.map((rt, i) => (
-                          <button
-                            key={i}
-                            onClick={() => chooseTopic(rt)}
-                            style={{
-                              padding:"6px 14px",
-                              background:"rgba(57,154,255,0.1)",
-                              border:`1px solid rgba(57,154,255,0.3)`,
-                              borderRadius:"20px",
-                              color:BLUE,
-                              fontSize:"13px",
-                              fontWeight:"600",
-                              cursor:"pointer",
-                              transition:"all 0.2s"
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = BLUE;
-                              e.currentTarget.style.color = "#fff";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "rgba(57,154,255,0.1)";
-                              e.currentTarget.style.color = BLUE;
-                            }}
-                          >
-                            {rt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
