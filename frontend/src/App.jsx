@@ -3060,7 +3060,7 @@ function SubjectPage({ profile, onHome }) {
     };
   };
 
-  // Choose a topic and start the lesson — streams text word by word
+  // Choose a topic and start the lesson
   const chooseTopic = (topic) => {
     setActiveTopic(topic);
     setShowTopicMenu(false);
@@ -3074,45 +3074,23 @@ function SubjectPage({ profile, onHome }) {
       try {
         const history = messages.slice(-6).map(m => ({
           role: m.role === 'bot' ? 'assistant' : 'user',
-          content: m.content
+          content: m.content || ''
         }));
 
-        const res = await fetch(`${API}/api/mcp/explain-topic-stream`, {
+        const res = await fetch(`${API}/api/mcp/explain-topic`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ subject: activeSubject, grade: profile.grade, topic, history })
         });
 
-        if (!res.ok) throw new Error("Stream failed");
+        if (!res.ok) throw new Error("Explain failed");
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = '';
-        let buffer = '';
+        const data = await res.json();
+        const explanation = data.explanation || '';
+        const backendSections = data.sections && Object.keys(data.sections).length > 0 ? data.sections : null;
+        const sections = backendSections || parseSections(explanation);
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop(); // keep incomplete line in buffer
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const payload = line.slice(6);
-            if (payload === '[DONE]') break;
-            try {
-              const parsed = JSON.parse(payload);
-              if (parsed.text) {
-                accumulated += parsed.text;
-                setMessages([{ role: 'bot', topic, content: accumulated, sections: null, streaming: true }]);
-              }
-            } catch {}
-          }
-        }
-
-        // Streaming done — parse sections so formatted layout renders
-        const sections = parseSections(accumulated);
-        setMessages([{ role: 'bot', topic, content: accumulated, sections, streaming: false }]);
+        setMessages([{ role: 'bot', topic, content: explanation, sections, streaming: false }]);
 
         // Load related topics via Voyage AI semantic search
         const subjectForRelated = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
@@ -3153,8 +3131,8 @@ function SubjectPage({ profile, onHome }) {
               student_id: studentId, topic, grade_level: profile.grade,
               subject: profile.subject || "General",
               request_data: { topic },
-              response_preview: accumulated.substring(0, 200),
-              response_content: accumulated
+              response_preview: explanation.substring(0, 200),
+              response_content: explanation
             })
           });
         } catch {}
