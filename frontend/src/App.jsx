@@ -3362,6 +3362,14 @@ function SubjectPage({ profile, onHome }) {
             lessonType="lesson"
           />
 
+          {/* Profile menu with Sign Out */}
+          <ProfileMenu onSignOut={() => {
+            localStorage.removeItem("ai_tutor_account");
+            localStorage.removeItem("ai_tutor_profile");
+            localStorage.removeItem("ai_tutor_seen_landing");
+            window.location.reload();
+          }} />
+
           {/* Voice State Indicator */}
           <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", fontWeight:"600" }}>
             <div style={{
@@ -4550,6 +4558,33 @@ function SubjectPage({ profile, onHome }) {
 }
 
 // ─── MAIN APP COMPONENT ─────────────────────────────────────────────────────────
+function ProfileMenu({ onSignOut }) {
+  const [open, setOpen] = useState(false);
+  const acc = (() => { try { return JSON.parse(localStorage.getItem("ai_tutor_account") || "{}"); } catch { return {}; } })();
+  const initial = (acc.name || acc.email || "U").charAt(0).toUpperCase();
+  return (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setOpen(o => !o)} title={acc.name || "Profile"}
+        style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", background: "var(--blue)", color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+        {initial}
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
+          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 220, background: "var(--bg-secondary)", border: "1.5px solid var(--border-color)", borderRadius: 12, boxShadow: "var(--shadow-lg)", zIndex: 999, padding: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>{acc.name || "Student"}</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12, wordBreak: "break-all" }}>{acc.email || ""}</div>
+            <button onClick={onSignOut}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #ef4444", background: "transparent", color: "#ef4444", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              Sign Out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [profile, setProfile] = useState(null);
   const [seenLanding, setSeenLanding] = useState(() => !!localStorage.getItem("ai_tutor_seen_landing"));
@@ -4578,7 +4613,9 @@ export default function App() {
         profile={profile}
         onHome={() => {
           localStorage.removeItem("ai_tutor_profile");
+          localStorage.removeItem("ai_tutor_seen_landing");
           setProfile(null);
+          setSeenLanding(false);
         }}
       />
     </>

@@ -104,17 +104,28 @@ export default function Landing({ onEnter }) {
         </div>
       </header>
 
-      <section style={{ textAlign: "center", padding: "64px 6vw 40px", maxWidth: 860, margin: "0 auto" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 100, background: "var(--blue-xlight)", color: "var(--blue)", fontWeight: 700, fontSize: 13, marginBottom: 22 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--blue)" }} /> Lessons · Flashcards · Tests · Voice
+      <section style={{ padding: "64px 6vw 40px", maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", gap: 40, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 380px", minWidth: 280 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 100, background: "var(--blue-xlight)", color: "var(--blue)", fontWeight: 700, fontSize: 13, marginBottom: 22 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--blue)" }} /> Lessons · Flashcards · Tests · Voice
+          </div>
+          <h1 style={{ fontSize: "clamp(34px, 5vw, 54px)", fontWeight: 800, lineHeight: 1.1, margin: "0 0 18px" }}>Your friendly<br /><span style={{ color: "var(--blue)" }}>AI Tutor.</span></h1>
+          <p style={{ fontSize: "clamp(15px, 2vw, 18px)", color: "var(--text-secondary)", maxWidth: 520, margin: "0 0 30px", lineHeight: 1.6 }}>
+            Learn any subject with a personal AI tutor who explains things in fun, simple language — with pictures, flashcards, tests, and voice.
+          </p>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <button onClick={() => setAuth("signup")} style={{ padding: "14px 30px", borderRadius: 12, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 16, cursor: "pointer", boxShadow: "var(--shadow-lg)" }}>Get Started Free →</button>
+            <button onClick={onEnter} style={{ padding: "14px 30px", borderRadius: 12, border: "1.5px solid var(--border-color)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontWeight: 700, fontSize: 16, cursor: "pointer" }}>Try it now</button>
+          </div>
         </div>
-        <h1 style={{ fontSize: "clamp(34px, 5vw, 54px)", fontWeight: 800, lineHeight: 1.1, margin: "0 0 18px" }}>Your friendly<br /><span style={{ color: "var(--blue)" }}>AI Tutor.</span></h1>
-        <p style={{ fontSize: "clamp(15px, 2vw, 18px)", color: "var(--text-secondary)", maxWidth: 600, margin: "0 auto 30px", lineHeight: 1.6 }}>
-          Learn any subject with a personal AI tutor who explains things in fun, simple language — with pictures, flashcards, tests, and voice.
-        </p>
-        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={() => setAuth("signup")} style={{ padding: "14px 30px", borderRadius: 12, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 16, cursor: "pointer", boxShadow: "var(--shadow-lg)" }}>Get Started Free →</button>
-          <button onClick={onEnter} style={{ padding: "14px 30px", borderRadius: 12, border: "1.5px solid var(--border-color)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontWeight: 700, fontSize: 16, cursor: "pointer" }}>Try it now</button>
+        <div style={{ flex: "1 1 320px", minWidth: 260, display: "flex", justifyContent: "center" }}>
+          <img
+            src="https://image.pollinations.ai/prompt/Cute%203D%20Pixar%20cartoon%20of%20a%20friendly%20AI%20robot%20tutor%20holding%20a%20glowing%20book%20with%20sparkles%2C%20teaching%20kids%2C%20bright%20vibrant%20colors%2C%20clean%20white%20background%2C%20educational%20illustration?width=768&height=768&seed=11&nologo=true"
+            alt="AI Tutor illustration"
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            style={{ width: "100%", maxWidth: 420, height: "auto", borderRadius: 20, boxShadow: "var(--shadow-lg)" }}
+          />
         </div>
       </section>
 
