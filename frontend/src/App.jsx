@@ -4580,51 +4580,33 @@ function ProfileMenu({ onSignOut }) {
 }
 
 export default function App() {
-  const [profile, setProfile] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("ai_tutor_profile") || "null"); } catch { return null; }
-  });
-  const [account, setAccount] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("ai_tutor_account") || "null"); } catch { return null; }
-  });
-  // In-memory only: lets "Try it now" bypass auth for the current session,
-  // but every fresh visit re-shows the landing page until the user logs in.
-  const [guestMode, setGuestMode] = useState(false);
+  const [profile, setProfile] = useState(null);
+  // In-memory only — every fresh page load shows the landing page first,
+  // regardless of any saved account/profile in localStorage. The user clicks
+  // "Try it now" / "Log In" / "Sign Up" on the landing to advance.
+  const [seenLanding, setSeenLanding] = useState(false);
 
   const handleStart = (p) => {
     localStorage.setItem("ai_tutor_profile", JSON.stringify(p));
     setProfile(p);
   };
 
-  // Show landing whenever the visitor is not logged in (no saved account)
-  // and has not chosen "Try it now" in this session.
-  if (!account && !guestMode) {
-    return (
-      <Landing
-        onEnter={() => {
-          try { setAccount(JSON.parse(localStorage.getItem("ai_tutor_account") || "null")); } catch {}
-          setGuestMode(true);
-        }}
-      />
-    );
+  if (!seenLanding) {
+    return <Landing onEnter={() => setSeenLanding(true)} />;
   }
 
   if (!profile) {
-    return (
-      <>
-        <HomePage onStart={handleStart}/>
-      </>
-    );
+    return <HomePage onStart={handleStart} />;
   }
 
   return (
-    <>
-      <SubjectPage
-        profile={profile}
-        onHome={() => {
-          localStorage.removeItem("ai_tutor_profile");
-          setProfile(null);
-        }}
-      />
-    </>
+    <SubjectPage
+      profile={profile}
+      onHome={() => {
+        localStorage.removeItem("ai_tutor_profile");
+        setProfile(null);
+        setSeenLanding(false);
+      }}
+    />
   );
 }
