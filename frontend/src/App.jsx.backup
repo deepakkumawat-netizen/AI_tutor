@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { GRADES, SUBJECTS, getCurriculumTopic, GRADE_TOPICS } from "./constants.js";
 import UsageCounter from "./UsageCounter";
 import ChatHistory from "./ChatHistory";
 import { ThemeToggle } from "./components/ThemeToggle";
-import Landing from "./Landing";
 
 // ─── Inline styles / design tokens ───────────────────────────────────────────
 const FONT = "'Nunito', sans-serif";
 const BLUE = "#399aff";
 const DARK = "#ffffff";
+const CARD_BG = "#e8f3ff";
 const BORDER = "#399aff";
 // Backend API - use localhost for dev, current origin for production (Render)
 const API = window.location.hostname === 'localhost'
@@ -50,13 +50,12 @@ function Orbs() {
         @keyframes slideIn { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.2)} }
         @keyframes slideDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
-        .subject-card:hover { transform:translateY(-4px) scale(1.02) !important; box-shadow:0 12px 40px rgba(57,154,255,0.2) !important; border-color:var(--blue) !important; background:var(--bg-primary) !important; }
+        .subject-card:hover { transform:translateY(-4px) scale(1.02) !important; box-shadow:0 12px 40px rgba(57,154,255,0.2) !important; border-color:#399aff !important; background:#e8f3ff !important; }
         .send-btn:hover:not(:disabled) { transform:scale(1.07); }
-        .chip-btn:hover { background:var(--bg-tertiary) !important; border-color:var(--blue) !important; }
-        pre { background:var(--bg-secondary); border-radius:10px; padding:14px; overflow-x:auto; margin:8px 0; color:var(--text-primary); }
-        pre code { color:var(--blue); font-family:'JetBrains Mono',monospace; font-size:13px; }
-        code { background:rgba(57,154,255,0.12); padding:2px 6px; border-radius:5px; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--blue); }
-        :root.dark-mode code { background:rgba(6,182,212,0.2); }
+        .chip-btn:hover { background:#e0f0ff !important; border-color:#399aff !important; }
+        pre { background:#0d1f35; border-radius:10px; padding:14px; overflow-x:auto; margin:8px 0; }
+        pre code { color:#93c5fd; font-family:'JetBrains Mono',monospace; font-size:13px; }
+        code { background:rgba(57,154,255,0.12); padding:2px 6px; border-radius:5px; font-family:'JetBrains Mono',monospace; font-size:13px; color:#1a7de8; }
       `}</style>
     </div>
   );
@@ -940,24 +939,24 @@ function GradeDropdown({ value, onChange }) {
         style={{
           width: "100%", padding: "11px 14px", borderRadius: 12,
           border: `1.5px solid ${open ? BLUE : BORDER}`,
-          background: open ? "var(--blue-xlight)" : "var(--bg-secondary)",
-          color: "var(--text-primary)", fontFamily: FONT, fontSize: 14,
+          background: open ? "rgba(57,154,255,0.08)" : "#e8f3ff",
+          color: "#0f172a", fontFamily: FONT, fontSize: 14,
           cursor: "pointer", textAlign: "left",
           display: "flex", alignItems: "center", justifyContent: "space-between",
           transition: "all 0.15s", outline: "none", boxSizing: "border-box",
         }}
       >
-        <span style={{ fontWeight: 600, color:"var(--text-primary)" }}>{value || "Select Grade"}</span>
+        <span style={{ fontWeight: 600, color:"#0f172a" }}>{value || "Select Grade"}</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
           stroke="#399aff" strokeWidth="2.5" strokeLinecap="round"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0, color: "var(--text-primary)" }}>
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </button>
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 999,
-          background: "var(--bg-secondary)", border: `1.5px solid ${BORDER}`,
+          background: "#ffffff", border: `1.5px solid ${BORDER}`,
           borderRadius: 14, boxShadow: "0 8px 32px rgba(57,154,255,0.18)",
           maxHeight: 300, overflowY: "auto", animation: "fadeIn 0.12s ease",
         }}>
@@ -968,7 +967,7 @@ function GradeDropdown({ value, onChange }) {
                 display: "block", width: "100%", padding: "11px 16px",
                 border: "none", borderLeft: `3px solid ${value === g ? BLUE : "transparent"}`,
                 background: value === g ? "rgba(57,154,255,0.1)" : "transparent",
-                color: value === g ? BLUE : "var(--text-secondary)",
+                color: value === g ? BLUE : "#334155",
                 fontFamily: FONT, fontSize: 13, fontWeight: value === g ? 700 : 500,
                 cursor: "pointer", textAlign: "left", transition: "background 0.1s",
               }}
@@ -994,7 +993,7 @@ function HomePage({ onStart }) {
 
   // Style definitions
   const lbl = { display:"block", fontSize:"13px", fontWeight:"600", color:BLUE, marginBottom:"8px" };
-  const inp = { width:"100%", padding:"10px 12px", fontSize:"14px", border:`1.5px solid ${BORDER}`, borderRadius:"10px", fontFamily:FONT, outline:"none", transition:"all 0.2s", background:"var(--bg-secondary)", color:"var(--text-primary)" };
+  const inp = { width:"100%", padding:"10px 12px", fontSize:"14px", border:`1.5px solid ${BORDER}`, borderRadius:"10px", fontFamily:FONT, outline:"none", transition:"all 0.2s" };
 
   const filteredSubjects = ALL_SUBJECTS.filter(s =>
     s.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1067,7 +1066,7 @@ function HomePage({ onStart }) {
             </div>
             <div>
               <label style={lbl}>Grade / Year</label>
-              <GradeDropdown value={grade} onChange={g => { setGrade(g); const n = parseInt(g.replace("Grade ","")); if (!isNaN(n)) setAge(String(n + 5)); }} />
+              <GradeDropdown value={grade} onChange={setGrade} />
             </div>
           </div>
 
@@ -1109,7 +1108,7 @@ function HomePage({ onStart }) {
                   borderRadius:16,
                   cursor:"pointer",
                   border: `1.5px solid ${BORDER}`,
-                  background: subject === s.id ? "var(--blue-xlight)" : "var(--bg-secondary)",
+                  background: subject === s.id ? "rgba(57,154,255,0.25)" : CARD_BG,
                   transition:"all 0.2s ease",
                   textAlign:"center",
                   fontSize: "inherit",
@@ -1117,7 +1116,7 @@ function HomePage({ onStart }) {
                 }}
               >
                 <div style={{ fontSize:22, marginBottom:6 }}>{s.icon || "📚"}</div>
-                <div style={{ color: "var(--text-primary)", fontWeight:700, fontSize:12.5, lineHeight:1.3 }}>{s.label}</div>
+                <div style={{ color: "#334155", fontWeight:700, fontSize:12.5, lineHeight:1.3 }}>{s.label}</div>
               </button>
             ))}
           </div>
@@ -1125,7 +1124,7 @@ function HomePage({ onStart }) {
           {/* Divider */}
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
             <div style={{ flex:1, height:1, background:BORDER }}/>
-            <span style={{ color:"var(--text-secondary)", fontSize:12, fontWeight:600 }}>OR TYPE YOUR OWN</span>
+            <span style={{ color:"#94a3b8", fontSize:12, fontWeight:600 }}>OR TYPE YOUR OWN</span>
             <div style={{ flex:1, height:1, background:BORDER }}/>
           </div>
 
@@ -1152,7 +1151,7 @@ function HomePage({ onStart }) {
                 }}
                 style={{
                   padding:"10px 16px", borderRadius:10, border:"none",
-                  background:BLUE, color:"var(--text-primary)", fontWeight:600, cursor:"pointer",
+                  background:BLUE, color:"white", fontWeight:600, cursor:"pointer",
                   transition:"all 0.2s"
                 }}
               >
@@ -1181,7 +1180,7 @@ function HomePage({ onStart }) {
         </div>
 
         {/* Footer */}
-        <p style={{ textAlign:"center", color:"var(--text-secondary)", fontSize:11, fontWeight:600, marginTop:24, position:"relative", zIndex:1 }}>
+        <p style={{ textAlign:"center", color:"#94a3b8", fontSize:11, fontWeight:600, marginTop:24, position:"relative", zIndex:1 }}>
           Free · Any subject · Any school board worldwide
         </p>
       </div>
@@ -1851,7 +1850,7 @@ function VideoPlayer({ profile }) {
         <a
           href={`https://www.youtube.com/results?search_query=${encodeURIComponent(profile.topic + " " + profile.subjectLabel + " " + profile.grade + " lesson tutorial")}`}
           target="_blank" rel="noopener noreferrer"
-          style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 28px", borderRadius:12, background:"#FF0000", color:"var(--text-primary)", fontFamily:FONT, fontWeight:900, fontSize:14, textDecoration:"none", boxShadow:"0 4px 20px rgba(255,0,0,0.35)" }}>
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 28px", borderRadius:12, background:"#FF0000", color:"white", fontFamily:FONT, fontWeight:900, fontSize:14, textDecoration:"none", boxShadow:"0 4px 20px rgba(255,0,0,0.35)" }}>
           <span style={{fontSize:18}}>▶</span> Search on YouTube
         </a>
         <button onClick={() => fetchVideos(query)} style={{ padding:"8px 20px", borderRadius:10, border:`1px solid ${BORDER}`, background:"var(--bg-tertiary)", color:"var(--text-primary)", fontFamily:FONT, fontWeight:700, fontSize:12, cursor:"pointer" }}>
@@ -1871,12 +1870,12 @@ function VideoPlayer({ profile }) {
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => { if(e.key==="Enter") fetchVideos(query); }}
           placeholder="Search educational videos…"
-          style={{ flex:1, padding:"7px 12px", borderRadius:8, border:`1.5px solid ${BORDER}`, background:"var(--bg-secondary)", color:"var(--text-primary)", fontFamily:FONT, fontSize:12, outline:"none" }}
+          style={{ flex:1, padding:"7px 12px", borderRadius:8, border:`1.5px solid ${BORDER}`, background:"#ffffff", color:"#0f172a", fontFamily:FONT, fontSize:12, outline:"none" }}
         />
         <button
           onClick={() => fetchVideos(query)}
           disabled={searching}
-          style={{ padding:"7px 14px", borderRadius:8, border:"none", background: searching ? "rgba(57,154,255,0.3)" : `linear-gradient(135deg,#1a7de8,${BLUE})`, color:"var(--text-primary)", fontFamily:FONT, fontWeight:800, fontSize:12, cursor: searching ? "not-allowed":"pointer", flexShrink:0, display:"flex", alignItems:"center", gap:6 }}>
+          style={{ padding:"7px 14px", borderRadius:8, border:"none", background: searching ? "rgba(57,154,255,0.3)" : `linear-gradient(135deg,#1a7de8,${BLUE})`, color:"white", fontFamily:FONT, fontWeight:800, fontSize:12, cursor: searching ? "not-allowed":"pointer", flexShrink:0, display:"flex", alignItems:"center", gap:6 }}>
           {searching
             ? <><div style={{ width:12,height:12,border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"white",borderRadius:"50%",animation:"spin 0.75s linear infinite" }}/> …</>
             : <>🔍 Search</>}
@@ -1915,7 +1914,7 @@ function VideoPlayer({ profile }) {
 
               {/* ── Video meta — single compact row ── */}
               <div style={{ padding:"8px 12px", background:"rgba(255,255,255,0.04)", borderRadius:10, border:"1px solid rgba(255,255,255,0.08)", marginBottom:8, flexShrink:0 }}>
-                <div style={{ color:"var(--text-primary)", fontWeight:800, fontSize:13, lineHeight:1.35, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{activeVideo.title}</div>
+                <div style={{ color:"white", fontWeight:800, fontSize:13, lineHeight:1.35, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{activeVideo.title}</div>
                 <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
                   <span style={{ color:BLUE, fontWeight:700, fontSize:11 }}>📺 {activeVideo.channel}</span>
                   {activeVideo.duration && <span style={{ color:"rgba(255,255,255,0.35)", fontSize:11, fontWeight:600 }}>⏱ {activeVideo.duration}</span>}
@@ -1958,7 +1957,7 @@ function VideoPlayer({ profile }) {
                   onError={e => { e.target.style.display="none"; }}
                 />
                 {v.duration && (
-                  <div style={{ position:"absolute", bottom:2, right:2, background:"rgba(0,0,0,0.88)", color:"var(--text-primary)", fontSize:8.5, fontWeight:800, padding:"1px 4px", borderRadius:3 }}>
+                  <div style={{ position:"absolute", bottom:2, right:2, background:"rgba(0,0,0,0.88)", color:"white", fontSize:8.5, fontWeight:800, padding:"1px 4px", borderRadius:3 }}>
                     {v.duration}
                   </div>
                 )}
@@ -2230,390 +2229,6 @@ async function fetchLessonScript(subject, subjectLabel, topic, grade, level) {
 }
 
 
-// ─── FLASHCARD VIEW ──────────────────────────────────────────────────────────
-function FlashcardView({ topic, grade, subject, apiUrl }) {
-  const [cards, setCards] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [idx, setIdx] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [done, setDone] = useState(new Set());
-
-  useEffect(() => {
-    if (topic) loadCards();
-  }, [topic]);
-
-  const loadCards = async () => {
-    setLoading(true); setCards([]); setIdx(0); setFlipped(false); setDone(new Set());
-    try {
-      const res = await fetch(`${apiUrl}/api/flashcards`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, grade, subject, num_cards: 8 }),
-      });
-      const data = await res.json();
-      if (data.flashcards) setCards(data.flashcards);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  const next = () => { setDone(d => new Set([...d, idx])); setFlipped(false); setTimeout(() => setIdx(i => Math.min(i+1, cards.length-1)), 150); };
-  const prev = () => { setFlipped(false); setTimeout(() => setIdx(i => Math.max(i-1, 0)), 150); };
-  const reset = () => { setIdx(0); setFlipped(false); setDone(new Set()); };
-
-  if (!topic) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-secondary)" }}>
-      <div style={{ fontSize:"48px", marginBottom:"12px" }}>📇</div>
-      <div style={{ fontSize:"18px", fontWeight:"600" }}>Select a topic to generate flashcards</div>
-    </div>
-  );
-
-  if (loading) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-secondary)" }}>
-      <div style={{ width:40, height:40, border:"3px solid rgba(57,154,255,0.3)", borderTopColor:BLUE, borderRadius:"50%", animation:"spin 0.7s linear infinite", marginBottom:16 }}/>
-      <div style={{ fontWeight:"600" }}>Generating flashcards…</div>
-    </div>
-  );
-
-  if (!cards.length) return null;
-
-  const card = cards[idx];
-  const progress = (done.size / cards.length) * 100;
-
-  return (
-    <div style={{ padding:"24px", maxWidth:600, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, height:"100%", overflowY:"auto" }}>
-      {/* Header */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <div>
-          <div style={{ fontSize:"18px", fontWeight:"700", color:"var(--text-primary)" }}>📇 Flashcards — {topic}</div>
-          <div style={{ fontSize:"13px", color:"var(--text-secondary)" }}>{idx+1} of {cards.length} • {done.size} reviewed</div>
-        </div>
-        <button onClick={loadCards} style={{ background:"transparent", border:`1.5px solid ${BLUE}`, borderRadius:10, padding:"6px 14px", color:BLUE, fontWeight:"600", fontSize:"13px", cursor:"pointer" }}>↺ Regenerate</button>
-      </div>
-
-      {/* Progress bar */}
-      <div style={{ height:6, background:"var(--bg-tertiary)", borderRadius:99 }}>
-        <div style={{ height:"100%", width:`${progress}%`, background:BLUE, borderRadius:99, transition:"width 0.4s" }}/>
-      </div>
-
-      {/* Flip card */}
-      <div onClick={() => setFlipped(f => !f)} style={{ flex:1, minHeight:220, maxHeight:300, cursor:"pointer", perspective:1000 }}>
-        <div style={{
-          width:"100%", height:"100%", position:"relative", transformStyle:"preserve-3d",
-          transition:"transform 0.5s", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-        }}>
-          {/* Front */}
-          <div style={{
-            position:"absolute", inset:0, backfaceVisibility:"hidden",
-            background:"linear-gradient(135deg,rgba(57,154,255,0.15),rgba(57,154,255,0.05))",
-            border:`2px solid ${BLUE}`, borderRadius:18,
-            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:32, textAlign:"center",
-          }}>
-            <div style={{ fontSize:"11px", fontWeight:"700", color:BLUE, textTransform:"uppercase", letterSpacing:"1px", marginBottom:16 }}>Term / Question</div>
-            <div style={{ fontSize:"20px", fontWeight:"700", color:"var(--text-primary)", lineHeight:1.4 }}>{card.front}</div>
-            <div style={{ marginTop:20, fontSize:"12px", color:"var(--text-secondary)" }}>Tap to reveal answer</div>
-          </div>
-          {/* Back */}
-          <div style={{
-            position:"absolute", inset:0, backfaceVisibility:"hidden", transform:"rotateY(180deg)",
-            background:"linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.04))",
-            border:"2px solid #22c55e", borderRadius:18,
-            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:32, textAlign:"center",
-          }}>
-            <div style={{ fontSize:"11px", fontWeight:"700", color:"#22c55e", textTransform:"uppercase", letterSpacing:"1px", marginBottom:16 }}>Answer</div>
-            <div style={{ fontSize:"17px", fontWeight:"600", color:"var(--text-primary)", lineHeight:1.5 }}>{card.back}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
-        <button onClick={prev} disabled={idx===0} style={{ padding:"10px 24px", borderRadius:12, border:`1.5px solid ${BLUE}`, background:"transparent", color:BLUE, fontWeight:"600", fontSize:"14px", cursor:idx===0?"not-allowed":"pointer", opacity:idx===0?0.4:1 }}>← Prev</button>
-        {idx < cards.length-1
-          ? <button onClick={next} style={{ padding:"10px 28px", borderRadius:12, border:"none", background:BLUE, color:"white", fontWeight:"700", fontSize:"14px", cursor:"pointer" }}>Got it →</button>
-          : <button onClick={reset} style={{ padding:"10px 28px", borderRadius:12, border:"none", background:"#22c55e", color:"white", fontWeight:"700", fontSize:"14px", cursor:"pointer" }}>↺ Start Over</button>
-        }
-      </div>
-
-      {/* Card dots */}
-      <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap" }}>
-        {cards.map((_, i) => (
-          <div key={i} onClick={() => { setIdx(i); setFlipped(false); }} style={{
-            width:10, height:10, borderRadius:"50%", cursor:"pointer",
-            background: done.has(i) ? "#22c55e" : i===idx ? BLUE : "var(--bg-tertiary)",
-            transition:"background 0.3s",
-          }}/>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── PRACTICE TEST VIEW ───────────────────────────────────────────────────────
-function PracticeTestView({ topic, grade, subject, apiUrl, onScoreSave }) {
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [qIdx, setQIdx] = useState(0);
-  const [selected, setSelected] = useState(null);
-  const [answered, setAnswered] = useState(false);
-  const [scores, setScores] = useState([]);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (topic) loadTest();
-  }, [topic]);
-
-  const loadTest = async () => {
-    setLoading(true); setQuestions([]); setQIdx(0); setSelected(null); setAnswered(false); setScores([]); setDone(false);
-    try {
-      const res = await fetch(`${apiUrl}/api/practice-test`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, grade, subject, num_questions: 5 }),
-      });
-      const data = await res.json();
-      if (data.questions) setQuestions(data.questions);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  const answer = (opt) => {
-    if (answered) return;
-    setSelected(opt);
-    setAnswered(true);
-    const isCorrect = opt[0] === questions[qIdx].correct;
-    setScores(s => [...s, isCorrect]);
-  };
-
-  const nextQ = () => {
-    if (qIdx + 1 >= questions.length) {
-      setDone(true);
-      const finalScores = [...scores];
-      const pct = Math.round((finalScores.filter(Boolean).length / finalScores.length) * 100);
-      onScoreSave?.({ topic, score: pct, date: new Date().toLocaleDateString() });
-    } else {
-      setQIdx(i => i+1); setSelected(null); setAnswered(false);
-    }
-  };
-
-  const OPTS = { A: "#3b82f6", B: "#10b981", C: "#f59e0b", D: "#ef4444" };
-
-  if (!topic) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-secondary)" }}>
-      <div style={{ fontSize:"48px", marginBottom:"12px" }}>📝</div>
-      <div style={{ fontSize:"18px", fontWeight:"600" }}>Select a topic to start a practice test</div>
-    </div>
-  );
-
-  if (loading) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-secondary)" }}>
-      <div style={{ width:40, height:40, border:"3px solid rgba(57,154,255,0.3)", borderTopColor:BLUE, borderRadius:"50%", animation:"spin 0.7s linear infinite", marginBottom:16 }}/>
-      <div style={{ fontWeight:"600" }}>Generating practice test…</div>
-    </div>
-  );
-
-  if (!questions.length) return null;
-
-  if (done) {
-    const correct = scores.filter(Boolean).length;
-    const pct = Math.round((correct / questions.length) * 100);
-    const emoji = pct >= 90 ? "🏆" : pct >= 70 ? "🎉" : pct >= 50 ? "👍" : "📚";
-    return (
-      <div style={{ padding:"32px 24px", maxWidth:520, margin:"0 auto", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:20 }}>
-        <div style={{ fontSize:"64px" }}>{emoji}</div>
-        <div style={{ fontSize:"24px", fontWeight:"800", color:"var(--text-primary)" }}>Test Complete!</div>
-        <div style={{ fontSize:"52px", fontWeight:"800", color: pct>=70?BLUE:"#f59e0b" }}>{pct}%</div>
-        <div style={{ fontSize:"16px", color:"var(--text-secondary)", fontWeight:"600" }}>{correct} / {questions.length} correct on <em>{topic}</em></div>
-        <div style={{ width:"100%", height:12, background:"var(--bg-tertiary)", borderRadius:99 }}>
-          <div style={{ height:"100%", width:`${pct}%`, background:pct>=70?BLUE:"#f59e0b", borderRadius:99, transition:"width 1s" }}/>
-        </div>
-        <div style={{ display:"flex", gap:12, marginTop:8 }}>
-          <button onClick={loadTest} style={{ padding:"12px 28px", borderRadius:14, border:"none", background:BLUE, color:"white", fontWeight:"700", fontSize:"15px", cursor:"pointer" }}>↺ Try Again</button>
-        </div>
-        {/* Answer review */}
-        <div style={{ width:"100%", textAlign:"left", marginTop:8 }}>
-          <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--text-secondary)", marginBottom:12 }}>REVIEW</div>
-          {questions.map((q, i) => (
-            <div key={i} style={{ marginBottom:12, padding:"12px 16px", borderRadius:12, background:scores[i]?"rgba(34,197,94,0.08)":"rgba(239,68,68,0.08)", border:`1.5px solid ${scores[i]?"#22c55e":"#ef4444"}` }}>
-              <div style={{ fontWeight:"600", fontSize:"13px", color:"var(--text-primary)", marginBottom:4 }}>{i+1}. {q.question}</div>
-              <div style={{ fontSize:"12px", color:scores[i]?"#22c55e":"#ef4444", fontWeight:"600" }}>
-                {scores[i] ? "✓ Correct" : `✗ Correct: ${q.correct}`}
-              </div>
-              <div style={{ fontSize:"12px", color:"var(--text-secondary)", marginTop:4 }}>{q.explanation}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const q = questions[qIdx];
-  const progress = ((qIdx) / questions.length) * 100;
-
-  return (
-    <div style={{ padding:"24px", maxWidth:600, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, height:"100%", overflowY:"auto" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <div style={{ fontSize:"17px", fontWeight:"700", color:"var(--text-primary)" }}>📝 Practice Test — {topic}</div>
-        <div style={{ fontSize:"13px", color:"var(--text-secondary)", fontWeight:"600" }}>Q{qIdx+1} of {questions.length}</div>
-      </div>
-      <div style={{ height:6, background:"var(--bg-tertiary)", borderRadius:99 }}>
-        <div style={{ height:"100%", width:`${progress}%`, background:BLUE, borderRadius:99, transition:"width 0.4s" }}/>
-      </div>
-      <div style={{ background:"var(--bg-secondary)", borderRadius:16, padding:"20px 24px", border:`1.5px solid rgba(57,154,255,0.2)` }}>
-        <div style={{ fontSize:"17px", fontWeight:"700", color:"var(--text-primary)", lineHeight:1.5 }}>{q.question}</div>
-      </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {q.options.map((opt) => {
-          const letter = opt[0];
-          const isSelected = selected === opt;
-          const isCorrect = answered && letter === q.correct;
-          const isWrong = answered && isSelected && letter !== q.correct;
-          return (
-            <button key={opt} onClick={() => answer(opt)} disabled={answered} style={{
-              padding:"14px 18px", borderRadius:12, border:`2px solid ${isCorrect?"#22c55e":isWrong?"#ef4444":answered?"var(--border-color)":OPTS[letter]+"66"}`,
-              background: isCorrect?"rgba(34,197,94,0.1)":isWrong?"rgba(239,68,68,0.1)":"var(--bg-secondary)",
-              color:"var(--text-primary)", fontWeight:"600", fontSize:"15px", cursor:answered?"default":"pointer",
-              textAlign:"left", transition:"all 0.2s", transform: isSelected?"scale(1.01)":"scale(1)",
-            }}>
-              <span style={{ fontWeight:"800", color:isCorrect?"#22c55e":isWrong?"#ef4444":OPTS[letter], marginRight:10 }}>{letter}</span>
-              {opt.slice(3)}
-            </button>
-          );
-        })}
-      </div>
-      {answered && (
-        <div style={{ padding:"14px 18px", borderRadius:12, background:"rgba(57,154,255,0.08)", border:`1.5px solid rgba(57,154,255,0.3)` }}>
-          <div style={{ fontSize:"13px", fontWeight:"700", color:BLUE, marginBottom:4 }}>{selected?.[0]===q.correct?"✓ Correct!":"✗ Incorrect"}</div>
-          <div style={{ fontSize:"13px", color:"var(--text-secondary)" }}>{q.explanation}</div>
-        </div>
-      )}
-      {answered && (
-        <button onClick={nextQ} style={{ padding:"12px", borderRadius:12, border:"none", background:BLUE, color:"white", fontWeight:"700", fontSize:"15px", cursor:"pointer" }}>
-          {qIdx+1 >= questions.length ? "See Results" : "Next Question →"}
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ─── PROGRESS VIEW ────────────────────────────────────────────────────────────
-function ProgressView({ subject, grade }) {
-  const key = "ai_tutor_progress_v2";
-  const raw = localStorage.getItem(key);
-  const data = raw ? JSON.parse(raw) : { lessons: [], tests: [], streak: 0, lastDate: null };
-
-  const lessons = data.lessons || [];
-  const tests = data.tests || [];
-  const totalLessons = lessons.length;
-  const avgScore = tests.length ? Math.round(tests.reduce((a,t)=>a+t.score,0)/tests.length) : null;
-  const streak = data.streak || 0;
-
-  // Subject distribution
-  const subjectCounts = {};
-  lessons.forEach(l => { subjectCounts[l.subject] = (subjectCounts[l.subject]||0)+1; });
-  const topSubjects = Object.entries(subjectCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const maxCount = topSubjects[0]?.[1] || 1;
-
-  // Recent test scores
-  const recentTests = tests.slice(-8);
-
-  return (
-    <div style={{ padding:"24px", display:"flex", flexDirection:"column", gap:20, overflowY:"auto", height:"100%" }}>
-      <div style={{ fontSize:"20px", fontWeight:"800", color:"var(--text-primary)" }}>📊 Learning Progress</div>
-
-      {/* Stats row */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
-        {[
-          { label:"Lessons", value: totalLessons, icon:"📚", color:BLUE },
-          { label:"Tests Taken", value: tests.length, icon:"📝", color:"#22c55e" },
-          { label:"Avg Score", value: avgScore!=null?`${avgScore}%`:"—", icon:"🏆", color:"#f59e0b" },
-          { label:"Day Streak", value: streak, icon:"🔥", color:"#ef4444" },
-          { label:"Topics", value: [...new Set(lessons.map(l=>l.topic))].length, icon:"🎯", color:"#8b5cf6" },
-          { label:"Subjects", value: Object.keys(subjectCounts).length, icon:"🔬", color:"#06b6d4" },
-        ].map(s => (
-          <div key={s.label} style={{ background:"var(--bg-secondary)", borderRadius:14, padding:"16px 14px", textAlign:"center", border:`1.5px solid rgba(57,154,255,0.15)` }}>
-            <div style={{ fontSize:"28px", marginBottom:4 }}>{s.icon}</div>
-            <div style={{ fontSize:"22px", fontWeight:"800", color:s.color }}>{s.value}</div>
-            <div style={{ fontSize:"11px", color:"var(--text-secondary)", fontWeight:"600", textTransform:"uppercase", letterSpacing:"0.5px" }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Subject bar chart */}
-      {topSubjects.length > 0 && (
-        <div style={{ background:"var(--bg-secondary)", borderRadius:14, padding:"18px 20px", border:`1.5px solid rgba(57,154,255,0.15)` }}>
-          <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--text-secondary)", marginBottom:14, textTransform:"uppercase", letterSpacing:"0.5px" }}>Topics by Subject</div>
-          {topSubjects.map(([subj, count]) => (
-            <div key={subj} style={{ marginBottom:10 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", fontSize:"13px", fontWeight:"600", color:"var(--text-primary)", marginBottom:4 }}>
-                <span>{subj}</span><span>{count}</span>
-              </div>
-              <div style={{ height:8, background:"var(--bg-tertiary)", borderRadius:99 }}>
-                <div style={{ height:"100%", width:`${(count/maxCount)*100}%`, background:BLUE, borderRadius:99, transition:"width 1s" }}/>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Recent test scores */}
-      {recentTests.length > 0 && (
-        <div style={{ background:"var(--bg-secondary)", borderRadius:14, padding:"18px 20px", border:`1.5px solid rgba(57,154,255,0.15)` }}>
-          <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--text-secondary)", marginBottom:14, textTransform:"uppercase", letterSpacing:"0.5px" }}>Recent Test Scores</div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:80 }}>
-            {recentTests.map((t, i) => (
-              <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }} title={`${t.topic}: ${t.score}%`}>
-                <div style={{ width:"100%", background:t.score>=70?BLUE:"#f59e0b", borderRadius:"4px 4px 0 0", height:`${(t.score/100)*70}px`, minHeight:4 }}/>
-                <div style={{ fontSize:"10px", fontWeight:"700", color:"var(--text-secondary)" }}>{t.score}%</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize:"12px", color:"var(--text-secondary)", marginTop:8, textAlign:"center" }}>Last {recentTests.length} tests</div>
-        </div>
-      )}
-
-      {/* Recent lessons */}
-      {lessons.length > 0 && (
-        <div style={{ background:"var(--bg-secondary)", borderRadius:14, padding:"18px 20px", border:`1.5px solid rgba(57,154,255,0.15)` }}>
-          <div style={{ fontWeight:"700", fontSize:"14px", color:"var(--text-secondary)", marginBottom:12, textTransform:"uppercase", letterSpacing:"0.5px" }}>Recent Lessons</div>
-          {lessons.slice(-5).reverse().map((l, i) => (
-            <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:i<4?"1px solid var(--border-color)":"none" }}>
-              <span style={{ fontSize:"13px", fontWeight:"600", color:"var(--text-primary)" }}>{l.topic}</span>
-              <span style={{ fontSize:"12px", color:"var(--text-secondary)" }}>{l.date}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {lessons.length === 0 && tests.length === 0 && (
-        <div style={{ textAlign:"center", color:"var(--text-secondary)", padding:"40px 0" }}>
-          <div style={{ fontSize:"48px", marginBottom:12 }}>🌱</div>
-          <div style={{ fontSize:"16px", fontWeight:"600" }}>Start learning to build your progress!</div>
-          <div style={{ fontSize:"13px", marginTop:8 }}>Study topics, take flashcard sessions, and complete practice tests.</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Persist progress helper (called from SubjectPage on lesson load and test complete)
-function saveProgress(type, payload) {
-  const key = "ai_tutor_progress_v2";
-  const raw = localStorage.getItem(key);
-  const data = raw ? JSON.parse(raw) : { lessons: [], tests: [], streak: 0, lastDate: null };
-
-  const today = new Date().toLocaleDateString();
-  if (data.lastDate !== today) {
-    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString();
-    data.streak = data.lastDate === yesterday ? (data.streak || 0) + 1 : 1;
-    data.lastDate = today;
-  }
-
-  if (type === "lesson") {
-    data.lessons = [...(data.lessons || []), { ...payload, date: today }].slice(-50);
-  } else if (type === "test") {
-    data.tests = [...(data.tests || []), { ...payload, date: today }].slice(-30);
-  }
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
 // ─── SUBJECT / CHAT PAGE ──────────────────────────────────────────────────────
 // ─── Chip emojis for K-3 topic buttons ───────────────────────────────────────
 const CHIP_EMOJIS = ["🌟","📚","🎯","💡","🔍","🎓","✏️","🧩","🚀","🎨","🌈","⭐","🏆","🔬","🌍"];
@@ -2638,13 +2253,11 @@ function SubjectPage({ profile, onHome }) {
   const [speaking, setSpeaking]     = useState(false);
   const [activeTopic, setActiveTopic] = useState(null);
   const [topicList, setTopicList]   = useState([]);
-  const [topicsLoading, setTopicsLoading] = useState(true);
   const [showTopicMenu, setShowTopicMenu] = useState(false);
 
   // NEW: Search, sidebar, voice state, subject switching
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredTopics, setFilteredTopics] = useState([]);
-  const [relatedTopics, setRelatedTopics] = useState([]);
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
   const [showSidebar, setShowSidebar] = useState(false);
   const [speakerEnabled, setSpeakerEnabled] = useState(true);
@@ -2670,7 +2283,7 @@ function SubjectPage({ profile, onHome }) {
   }, [profile.subject]);
 
   // Video view state
-  const [viewMode, setViewMode] = useState("lesson"); // "lesson" | "videos" | "flashcards" | "practice" | "progress"
+  const [viewMode, setViewMode] = useState("lesson"); // "lesson" or "videos"
   const [videoList, setVideoList] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null); // For modal video player
@@ -2852,62 +2465,37 @@ function SubjectPage({ profile, onHome }) {
     }
   };
 
-  // Semantic search: use Voyage AI when query >= 3 chars, else simple filter
+  // NEW: Filter topics when search query changes
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredTopics([]);
-      return;
-    }
-    if (searchQuery.length < 3) {
-      setFilteredTopics(topicList.filter(t => t.toLowerCase().includes(searchQuery.toLowerCase())));
-      return;
-    }
-    const subjectToQuery = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`${API}/api/semantic/search`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: searchQuery, subject: subjectToQuery, grade: profile.grade, top_k: 8 })
-        });
-        const data = await res.json();
-        if (data.success && data.results?.length) {
-          setFilteredTopics(data.results.map(r => r.topic));
-        } else {
-          setFilteredTopics(topicList.filter(t => t.toLowerCase().includes(searchQuery.toLowerCase())));
-        }
-      } catch {
-        setFilteredTopics(topicList.filter(t => t.toLowerCase().includes(searchQuery.toLowerCase())));
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, topicList, activeSubject, profile.subjectLabel, profile.grade]);
+    const filtered = topicList.filter(topic =>
+      topic.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredTopics(filtered);
+  }, [searchQuery, topicList]);
 
   // NEW: Load topics when active subject changes
   useEffect(() => {
     const loadTopicsForSubject = async () => {
+      // Use subjectLabel for custom subjects, otherwise use activeSubject
       const subjectToQuery = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
-      setTopicList([]);
-      setTopicsLoading(true);
+      console.log("Loading topics for subject:", subjectToQuery, "grade:", profile.grade);
       try {
         const res = await fetch(`${API}/api/mcp/get-topics`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ subject: subjectToQuery, grade: profile.grade })
         });
-        if (!res.ok) { setTopicsLoading(false); return; }
+        if (!res.ok) {
+          console.warn("API error loading topics, using fallback");
+          setTopicList(topicListFallback);
+          return;
+        }
         const data = await res.json();
-        const topics = data.topics || [];
-        setTopicList(topics);
-        fetch(`${API}/api/semantic/embed-topics`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subject: subjectToQuery, grade: profile.grade, topics })
-        }).catch(() => {});
+        console.log("Topics loaded:", data.topics?.length, "topics");
+        setTopicList(data.topics || topicListFallback);
       } catch (e) {
-        // keep empty, skeleton will show retry option
-      } finally {
-        setTopicsLoading(false);
+        console.error("Error loading topics:", e);
+        setTopicList(topicListFallback);
       }
     };
     loadTopicsForSubject();
@@ -2923,39 +2511,35 @@ function SubjectPage({ profile, onHome }) {
 
   // Get available topics using MCP (for initial load)
   const loadTopics = async () => {
-    setTopicsLoading(true);
     try {
+      // Use subjectLabel for custom subjects, otherwise use activeSubject
       const subjectToQuery = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
       const res = await fetch(`${API}/api/mcp/get-topics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject: subjectToQuery, grade: profile.grade })
       });
-      if (!res.ok) { setTopicsLoading(false); return; }
+      if (!res.ok) {
+        setTopicList(topicListFallback);
+        return;
+      }
       const data = await res.json();
-      setTopicList(data.topics || []);
+      setTopicList(data.topics || topicListFallback);
     } catch (e) {
-      // keep empty
-    } finally {
-      setTopicsLoading(false);
+      setTopicList(topicListFallback);
     }
   };
 
   // Explain a topic using MCP
   const explainTopic = async (topic) => {
     try {
-      const history = messages.slice(-6).map(m => ({
-        role: m.role === 'bot' ? 'assistant' : 'user',
-        content: m.content
-      }));
       const res = await fetch(`${API}/api/mcp/explain-topic`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: activeSubject,
           grade: profile.grade,
-          topic: topic,
-          history
+          topic: topic
         })
       });
       if (!res.ok) return null;
@@ -2984,6 +2568,7 @@ function SubjectPage({ profile, onHome }) {
     }
   };
 
+  // Fetch videos for a topic from YouTube
   const fetchVideosForTopic = async (topic) => {
     setLoadingVideos(true);
     try {
@@ -3061,87 +2646,103 @@ function SubjectPage({ profile, onHome }) {
     };
   };
 
-  // Choose a topic and start the lesson
+  // Choose a topic and start the lesson using MCP
   const chooseTopic = (topic) => {
     setActiveTopic(topic);
     setShowTopicMenu(false);
-    setRelatedTopics([]);
-    setMessages([{ role: "bot", topic, content: "", sections: null, streaming: true }]);
-    setLoading(false);
-    setVoiceState("idle");
-    saveProgress("lesson", { topic, subject: activeSubject });
+    setMessages([]);
+    setLoading(true);
 
-    (async () => {
-      try {
-        const history = messages.slice(-6).map(m => ({
-          role: m.role === 'bot' ? 'assistant' : 'user',
-          content: m.content || ''
-        }));
+    // Get explanation for the topic
+    explainTopic(topic).then(data => {
+      if (data) {
+        const response = data.explanation || "Topic explanation loading...";
+        const botMessage = {
+          role: "bot",
+          topic: topic,
+          content: response,
+          sections: data.sections || null
+        };
+        setMessages([botMessage]);
+        // No automatic speaking - user must click "Hear Explanation" button
+        setVoiceState("idle");
 
-        const res = await fetch(`${API}/api/mcp/explain-topic`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subject: activeSubject, grade: profile.grade, topic, history })
-        });
-
-        if (!res.ok) throw new Error("Explain failed");
-
-        const data = await res.json();
-        const explanation = data.explanation || '';
-        const backendSections = data.sections && Object.keys(data.sections).length > 0 ? data.sections : null;
-        const sections = backendSections || parseSections(explanation);
-
-        setMessages([{ role: 'bot', topic, content: explanation, sections, streaming: false }]);
-
-        // Load related topics via Voyage AI semantic search
-        const subjectForRelated = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
-        try {
-          const relRes = await fetch(`${API}/api/semantic/related`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: topic, subject: subjectForRelated, grade: profile.grade, top_k: 4 })
-          });
-          const relData = await relRes.json();
-          if (relData.success && relData.results?.length) {
-            setRelatedTopics(relData.results.map(r => r.topic));
-          } else {
-            setRelatedTopics([]);
-          }
-        } catch { setRelatedTopics([]); }
-
+        // Save to chat history and increment usage
         const studentId = profile.grade || "student";
-        // Increment usage
-        try {
-          const res2 = await fetch(`${API}/api/increment-usage`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ student_id: studentId, lesson_type: "lesson" })
-          });
-          const result = await res2.json();
-          if (result.exceeded) {
-            setLimitExceeded(true);
-            setLimitMessage(`⚠️ Daily limit reached! You've used ${result.usage_count}/${result.limit} lessons today.`);
+        console.log("[AI-Tutor] Saving lesson chat with content length:", response.length);
+        console.log("[AI-Tutor] API URL:", API);
+        console.log("[AI-Tutor] Student ID:", studentId);
+
+        // Increment usage and refresh counter
+        const incrementUsage = async () => {
+          try {
+            console.log("[AI-Tutor] Calling increment-usage from chooseTopic...");
+            const res = await fetch(`${API}/api/increment-usage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                student_id: studentId,
+                lesson_type: "lesson"
+              })
+            });
+            const result = await res.json();
+            console.log("[AI-Tutor] Usage incremented response:", result);
+
+            // Check if limit is exceeded
+            if (result.exceeded) {
+              setLimitExceeded(true);
+              setLimitMessage(`⚠️ Daily limit reached! You've used ${result.usage_count}/${result.limit} lessons today. Please try again tomorrow.`);
+              console.log("[AI-Tutor] Daily limit exceeded:", result);
+            }
+
+            // Refresh counter after successful increment
+            setTimeout(() => {
+              console.log("[AI-Tutor] Refreshing counter, ref current:", usageCounterRef.current);
+              if (usageCounterRef.current) {
+                usageCounterRef.current.refresh();
+                console.log("[AI-Tutor] Counter refresh called");
+              } else {
+                console.error("[AI-Tutor] usageCounterRef.current is null");
+              }
+            }, 100);
+          } catch (e) {
+            console.error("[AI-Tutor] Usage increment error:", e);
           }
-          setTimeout(() => { if (usageCounterRef.current) usageCounterRef.current.refresh(); }, 100);
-        } catch {}
+        };
 
         // Save chat
-        try {
-          await fetch(`${API}/api/save-chat`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              student_id: studentId, topic, grade_level: profile.grade,
-              subject: profile.subject || "General",
-              request_data: { topic },
-              response_preview: explanation.substring(0, 200),
-              response_content: explanation
-            })
-          });
-        } catch {}
+        const saveChat = async () => {
+          try {
+            console.log("[AI-Tutor] Calling save-chat from chooseTopic...");
+            const res = await fetch(`${API}/api/save-chat`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                student_id: studentId,
+                topic: topic,
+                grade_level: profile.grade,
+                subject: profile.subject || "General",
+                request_data: { topic: topic },
+                response_preview: response.substring(0, 200),
+                response_content: response
+              })
+            });
+            const result = await res.json();
+            console.log("[AI-Tutor] Chat saved response:", result);
+          } catch (e) {
+            console.error("[AI-Tutor] Save chat error:", e);
+          }
+        };
 
-      } catch {
-        setMessages([{ role: "bot", content: "Could not load topic. Please try again." }]);
+        // Call both
+        incrementUsage();
+        saveChat();
+      } else {
+        const errorMsg = "Could not load topic. Please try again.";
+        setMessages([{ role:"bot", content: errorMsg }]);
+        setVoiceState("idle");
       }
-    })();
+    }).finally(() => setLoading(false));
   };
 
   // Send text message (from input or voice)
@@ -3270,12 +2871,12 @@ function SubjectPage({ profile, onHome }) {
 
   // Return the redesigned student-friendly interface
   return (
-    <div style={{ position:"relative", height:"100vh", display:"flex", flexDirection:"column", background:"var(--bg-primary)" }}>
+    <div style={{ position:"relative", height:"100vh", display:"flex", flexDirection:"column", background:"linear-gradient(135deg, #e0f2ff 0%, #f0e8ff 100%)" }}>
       {/* Header - Colorful and engaging */}
       <div style={{
         padding:"16px 20px",
         background:`linear-gradient(135deg, ${BLUE} 0%, #5b9cff 100%)`,
-        color:"var(--text-primary)",
+        color:"white",
         display:"flex",
         justifyContent:"space-between",
         alignItems:"center",
@@ -3346,7 +2947,7 @@ function SubjectPage({ profile, onHome }) {
               display:"flex",
               alignItems:"center",
               justifyContent:"center",
-              color:"var(--text-primary)",
+              color:"white",
               fontWeight:"600"
             }}
             title="Chat history"
@@ -3425,7 +3026,7 @@ function SubjectPage({ profile, onHome }) {
               top:60,
               width:280,
               height:"calc(100vh - 60px)",
-              background:"var(--bg-primary)",
+              background:"white",
               boxShadow:"2px 0 12px rgba(0,0,0,0.15)",
               overflowY:"auto",
               zIndex:1000,
@@ -3452,9 +3053,7 @@ function SubjectPage({ profile, onHome }) {
                   fontWeight:"500",
                   outline:"none",
                   transition:"all 0.2s",
-                  boxSizing:"border-box",
-                  background:"var(--bg-secondary)",
-                  color:"var(--text-primary)"
+                  boxSizing:"border-box"
                 }}
                 onFocus={(e) => {
                   e.target.style.borderColor = BLUE;
@@ -3475,7 +3074,7 @@ function SubjectPage({ profile, onHome }) {
                     border:"none",
                     cursor:"pointer",
                     fontSize:"14px",
-                    color:"var(--text-secondary)"
+                    color:"#999"
                   }}
                 >
                   ✕
@@ -3483,7 +3082,7 @@ function SubjectPage({ profile, onHome }) {
               )}
             </div>
 
-            <div style={{ fontSize:"12px", fontWeight:"600", color:"var(--text-secondary)", marginBottom:"12px", textTransform:"uppercase", letterSpacing:"0.5px" }}>
+            <div style={{ fontSize:"12px", fontWeight:"600", color:"#999", marginBottom:"12px", textTransform:"uppercase", letterSpacing:"0.5px" }}>
               Subjects
             </div>
 
@@ -3505,25 +3104,25 @@ function SubjectPage({ profile, onHome }) {
                   style={{
                     padding:"14px 12px",
                     borderRadius:"12px",
-                    border:activeSubject === subject.id ? `2px solid ${BLUE}` : `1px solid var(--border-color)`,
-                    background:activeSubject === subject.id ? "var(--blue-xlight)" : "var(--bg-secondary)",
+                    border:activeSubject === subject.id ? `2px solid ${BLUE}` : `1px solid #e0e8f3`,
+                    background:activeSubject === subject.id ? "rgba(57,154,255,0.1)" : "white",
                     cursor:"pointer",
                     transition:"all 0.2s",
                     display:"flex",
                     gap:"10px",
                     alignItems:"center",
                     fontWeight:"600",
-                    color:"var(--text-primary)"
+                    color:"#333"
                   }}
                   onMouseEnter={(e) => {
                     if (activeSubject !== subject.id) {
-                      e.target.style.background = "var(--bg-tertiary)";
+                      e.target.style.background = "#f5f5f5";
                       e.target.style.transform = "translateX(4px)";
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (activeSubject !== subject.id) {
-                      e.target.style.background = "var(--bg-secondary)";
+                      e.target.style.background = "white";
                       e.target.style.transform = "translateX(0)";
                     }
                   }}
@@ -3561,9 +3160,7 @@ function SubjectPage({ profile, onHome }) {
                 outline:"none",
                 transition:"all 0.2s",
                 boxSizing:"border-box",
-                paddingRight:"100px",
-                background:"var(--bg-secondary)",
-                color:"var(--text-primary)"
+                paddingRight:"100px"
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = BLUE;
@@ -3607,7 +3204,7 @@ function SubjectPage({ profile, onHome }) {
                     padding:"8px 10px",
                     fontSize:"16px",
                     transition:"all 0.2s",
-                    color:"var(--text-primary)",
+                    color:"white",
                     fontWeight:"600",
                     minWidth:"40px",
                     display:"flex",
@@ -3632,7 +3229,7 @@ function SubjectPage({ profile, onHome }) {
                   fontSize:"14px",
                   fontWeight:"600",
                   transition:"all 0.2s",
-                  color:"var(--text-primary)",
+                  color:"white",
                   minWidth:"44px",
                   height:"44px",
                   display:"flex",
@@ -3665,7 +3262,7 @@ function SubjectPage({ profile, onHome }) {
                     border:"none",
                     cursor:"pointer",
                     fontSize:"16px",
-                    color:"var(--text-secondary)",
+                    color:"#999",
                     padding:"4px 6px",
                     transition:"all 0.2s"
                   }}
@@ -3685,7 +3282,7 @@ function SubjectPage({ profile, onHome }) {
               maxHeight:"300px",
               overflowY:"auto",
               padding:"12px",
-              background:"var(--bg-secondary)",
+              background:"white",
               border:`1.5px solid ${BORDER}`,
               borderRadius:"12px",
               marginTop:"0px"
@@ -3696,24 +3293,24 @@ function SubjectPage({ profile, onHome }) {
                   onClick={() => chooseTopic(topic)}
                   style={{
                     padding:"12px 10px",
-                    background:"var(--bg-secondary)",
+                    background:"white",
                     border:`1px solid ${BORDER}`,
                     borderRadius:"10px",
                     cursor:"pointer",
                     fontSize:"13px",
                     fontWeight:"600",
-                    color:"var(--text-primary)",
+                    color:"#333",
                     transition:"all 0.2s",
                     textAlign:"center",
                     lineHeight:"1.4"
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.background = "var(--bg-tertiary)";
+                    e.target.style.background = CARD_BG;
                     e.target.style.transform = "translateY(-2px)";
                     e.target.style.boxShadow = "0 4px 12px rgba(57,154,255,0.2)";
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.background = "var(--bg-secondary)";
+                    e.target.style.background = "white";
                     e.target.style.transform = "translateY(0)";
                     e.target.style.boxShadow = "none";
                   }}
@@ -3726,119 +3323,51 @@ function SubjectPage({ profile, onHome }) {
 
           {/* Show all topics if no search query */}
           {!searchQuery && (
-            topicsLoading ? (
-              /* ── Hero cards while topics load ── */
-              <div style={{ marginTop:"12px" }}>
-                <div style={{ fontSize:"11px", color:"var(--text-secondary)", textAlign:"center", marginBottom:"10px", letterSpacing:"1px", textTransform:"uppercase" }}>
-                  🇮🇳 India's Greatest Minds — Be Inspired!
-                </div>
-                <div style={{
-                  display:"grid",
-                  gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))",
-                  gap:"12px",
-                }}>
-                  {[
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/A._P._J._Abdul_Kalam.jpg/200px-A._P._J._Abdul_Kalam.jpg",  name:"APJ Abdul Kalam",  role:"Scientist & President",       quote:"Dream, dream, dream!",                  color:"#1a3a5c" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Srinivasa_Ramanujan_-_OPC_-_1.jpg/200px-Srinivasa_Ramanujan_-_OPC_-_1.jpg", name:"Ramanujan",        role:"Mathematics Genius",          quote:"Numbers were his best friends.",        color:"#1a2e1a" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/CV_Raman_photo.jpg/200px-CV_Raman_photo.jpg",               name:"C.V. Raman",       role:"Nobel Prize — Physics",        quote:"Curiosity led him to light.",           color:"#2e1a1a" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Vikram_Sarabhai.jpg/200px-Vikram_Sarabhai.jpg",             name:"Vikram Sarabhai",  role:"Father of ISRO",              quote:"He put India in space.",                color:"#1a1a3a" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Savitribai_Phule.jpg/200px-Savitribai_Phule.jpg",           name:"Savitribai Phule", role:"India's First Teacher",       quote:"She fought so you could study.",        color:"#2e1a2e" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Homi_Jehangir_Bhabha_1960s.jpg/200px-Homi_Jehangir_Bhabha_1960s.jpg", name:"Homi Bhabha",  role:"Father of Nuclear Science",   quote:"Science is India's strength.",         color:"#1a2e2e" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Shakuntala_Devi_2013_stamp_of_India.jpg/200px-Shakuntala_Devi_2013_stamp_of_India.jpg", name:"Shakuntala Devi", role:"Human Computer", quote:"Faster than any machine!",             color:"#2e2a10" },
-                    { img:"https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Kalpana_Chawla%2C_NASA_photo_portrait_in_orange_suit.jpg/200px-Kalpana_Chawla%2C_NASA_photo_portrait_in_orange_suit.jpg", name:"Kalpana Chawla", role:"First Indian Woman in Space", quote:"Stars were just the beginning.",        color:"#1a1a2e" },
-                  ].map((hero, i) => (
-                    <div key={i} style={{
-                      borderRadius:"14px",
-                      background:hero.color,
-                      border:`1px solid ${BORDER}`,
-                      overflow:"hidden",
-                      display:"flex",
-                      flexDirection:"column",
-                      alignItems:"center",
-                      animation:`fadeIn 0.5s ${i * 0.1}s both`,
-                      cursor:"default",
-                      userSelect:"none",
-                    }}>
-                      <img
-                        src={hero.img}
-                        alt={hero.name}
-                        style={{ width:"100%", height:"140px", objectFit:"cover", objectPosition:"center top" }}
-                        onError={e => { e.target.style.display="none"; }}
-                      />
-                      <div style={{ padding:"10px 10px 12px", textAlign:"center" }}>
-                        <div style={{ fontSize:"13px", fontWeight:"700", color:"#fff", marginBottom:"2px" }}>{hero.name}</div>
-                        <div style={{ fontSize:"10px", color:"#399aff", fontWeight:"600", marginBottom:"6px" }}>{hero.role}</div>
-                        <div style={{ fontSize:"10px", color:"rgba(255,255,255,0.65)", fontStyle:"italic", lineHeight:"1.4" }}>"{hero.quote}"</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              /* ── Regular topic chips after API responds ── */
-              <div style={{
-                display:"grid",
-                gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))",
-                gap:"10px",
-                maxHeight:"250px",
-                overflowY:"auto",
-                padding:"12px",
-                background:"var(--bg-secondary)",
-                border:`1.5px solid ${BORDER}`,
-                borderRadius:"12px",
-                marginTop:"12px"
-              }}>
-                {topicList.slice(0, 12).map((topic, i) => (
-                  <button
-                    key={i}
-                    onClick={() => chooseTopic(topic)}
-                    style={{
-                      padding:"12px 10px",
-                      background:"var(--bg-secondary)",
-                      border:`1px solid ${BORDER}`,
-                      borderRadius:"10px",
-                      cursor:"pointer",
-                      fontSize:"13px",
-                      fontWeight:"600",
-                      color:"var(--text-primary)",
-                      transition:"all 0.2s",
-                      textAlign:"center",
-                      lineHeight:"1.4"
-                    }}
-                    onMouseEnter={e => { e.target.style.background="var(--bg-tertiary)"; e.target.style.transform="translateY(-2px)"; e.target.style.boxShadow="0 4px 12px rgba(57,154,255,0.2)"; }}
-                    onMouseLeave={e => { e.target.style.background="var(--bg-secondary)"; e.target.style.transform="translateY(0)"; e.target.style.boxShadow="none"; }}
-                  >
-                    <span style={{ fontSize:"11px", fontWeight:"800", color:"rgba(57,154,255,0.7)", marginRight:"4px" }}>{i + 1}.</span>{CHIP_EMOJIS[i % CHIP_EMOJIS.length]} {topic}
-                  </button>
-                ))}
-              </div>
-            )
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))",
+              gap:"10px",
+              maxHeight:"250px",
+              overflowY:"auto",
+              padding:"12px",
+              background:"white",
+              border:`1.5px solid ${BORDER}`,
+              borderRadius:"12px",
+              marginTop:"12px"
+            }}>
+              {topicList.slice(0, 12).map((topic, i) => (
+                <button
+                  key={i}
+                  onClick={() => chooseTopic(topic)}
+                  style={{
+                    padding:"12px 10px",
+                    background:"white",
+                    border:`1px solid ${BORDER}`,
+                    borderRadius:"10px",
+                    cursor:"pointer",
+                    fontSize:"13px",
+                    fontWeight:"600",
+                    color:"#333",
+                    transition:"all 0.2s",
+                    textAlign:"center",
+                    lineHeight:"1.4"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = CARD_BG;
+                    e.target.style.transform = "translateY(-2px)";
+                    e.target.style.boxShadow = "0 4px 12px rgba(57,154,255,0.2)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "white";
+                    e.target.style.transform = "translateY(0)";
+                    e.target.style.boxShadow = "none";
+                  }}
+                >
+                  {CHIP_EMOJIS[i % CHIP_EMOJIS.length]} {topic}
+                </button>
+              ))}
+            </div>
           )}
-        </div>
-      )}
-
-      {/* Get Started prompt — shown only when no topic is selected */}
-      {!activeTopic && !topicsLoading && (
-        <div style={{ padding:"24px 20px 32px", textAlign:"center" }}>
-          <div style={{ fontSize:"40px", marginBottom:"12px" }}>👆</div>
-          <div style={{ fontSize:"18px", fontWeight:"700", color:"var(--text-primary)", marginBottom:"8px" }}>
-            Pick a topic to start learning!
-          </div>
-          <div style={{ fontSize:"13px", color:"var(--text-secondary)", maxWidth:"320px", margin:"0 auto 20px" }}>
-            Choose any topic above and your AI Tutor will explain it step-by-step, just for you.
-          </div>
-          <div style={{ display:"flex", justifyContent:"center", gap:"10px", flexWrap:"wrap" }}>
-            {["Ask anything 🤔", "Learn at your pace 🐢", "Get instant answers ⚡", "Practice with quizzes 📝"].map((tag, i) => (
-              <span key={i} style={{
-                background:"var(--bg-secondary)",
-                border:"1px solid var(--border-color)",
-                borderRadius:"20px",
-                padding:"5px 14px",
-                fontSize:"12px",
-                color:"var(--text-secondary)"
-              }}>{tag}</span>
-            ))}
-          </div>
         </div>
       )}
 
@@ -3863,25 +3392,42 @@ function SubjectPage({ profile, onHome }) {
 
           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
             {/* View Toggle Buttons */}
-            <div style={{ display:"flex", gap:"4px", background:"var(--bg-tertiary)", padding:"4px", borderRadius:"8px", flexWrap:"wrap" }}>
-              {[
-                { id:"lesson",    label:"📚 Lesson" },
-                { id:"videos",    label:"🎬 Videos",    onClick: () => { if (videoList.length === 0) fetchVideosForTopic(activeTopic); } },
-                { id:"flashcards",label:"📇 Flashcards" },
-                { id:"practice",  label:"📝 Test" },
-                { id:"progress",  label:"📊 Progress" },
-              ].map(tab => (
-                <button key={tab.id}
-                  onClick={() => { setViewMode(tab.id); tab.onClick?.(); }}
-                  style={{
-                    padding:"8px 12px",
-                    background:viewMode === tab.id ? BLUE : "transparent",
-                    color:viewMode === tab.id ? "white" : "var(--text-secondary)",
-                    border:"none", borderRadius:"6px", cursor:"pointer",
-                    fontWeight:"600", fontSize:"12px", transition:"all 0.2s", whiteSpace:"nowrap",
-                  }}
-                >{tab.label}</button>
-              ))}
+            <div style={{ display:"flex", gap:"4px", background:"var(--bg-tertiary)", padding:"4px", borderRadius:"8px" }}>
+              <button
+                onClick={() => { setViewMode("lesson"); }}
+                style={{
+                  padding:"8px 14px",
+                  background:viewMode === "lesson" ? BLUE : "transparent",
+                  color:viewMode === "lesson" ? "white" : "var(--text-secondary)",
+                  border:"none",
+                  borderRadius:"6px",
+                  cursor:"pointer",
+                  fontWeight:"600",
+                  fontSize:"13px",
+                  transition:"all 0.2s"
+                }}
+              >
+                📚 Lesson
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode("videos");
+                  if (videoList.length === 0) fetchVideosForTopic(activeTopic);
+                }}
+                style={{
+                  padding:"8px 14px",
+                  background:viewMode === "videos" ? BLUE : "transparent",
+                  color:viewMode === "videos" ? "white" : "var(--text-secondary)",
+                  border:"none",
+                  borderRadius:"6px",
+                  cursor:"pointer",
+                  fontWeight:"600",
+                  fontSize:"13px",
+                  transition:"all 0.2s"
+                }}
+              >
+                🎬 Videos
+              </button>
             </div>
 
             {/* Change Topic Button */}
@@ -3916,8 +3462,7 @@ function SubjectPage({ profile, onHome }) {
           padding:"20px",
           display:"flex",
           flexDirection:"column",
-          gap:"16px",
-          background:"var(--bg-primary)"
+          gap:"16px"
         }}
       >
         {/* Videos View */}
@@ -3940,7 +3485,7 @@ function SubjectPage({ profile, onHome }) {
                 borderTop:`4px solid transparent`,
                 animation:"spin 1s linear infinite"
               }}/>
-              <div style={{ fontSize:"16px", fontWeight:"600", color:"var(--text-primary)" }}>Loading videos...</div>
+              <div style={{ fontSize:"16px", fontWeight:"600", color:"#333" }}>Loading videos...</div>
             </div>
           ) : videoList.length > 0 ? (
             <div style={{
@@ -3956,7 +3501,7 @@ function SubjectPage({ profile, onHome }) {
                     display:"block",
                     borderRadius:"12px",
                     overflow:"hidden",
-                    background:"var(--bg-secondary)",
+                    background:"white",
                     boxShadow:"0 2px 8px rgba(0,0,0,0.1)",
                     transition:"all 0.3s",
                     textDecoration:"none",
@@ -4020,7 +3565,7 @@ function SubjectPage({ profile, onHome }) {
                     <div style={{
                       fontSize:"14px",
                       fontWeight:"600",
-                      color:"var(--text-primary)",
+                      color:"#333",
                       lineHeight:"1.4",
                       marginBottom:"6px",
                       display:"-webkit-box",
@@ -4032,7 +3577,7 @@ function SubjectPage({ profile, onHome }) {
                     </div>
                     <div style={{
                       fontSize:"12px",
-                      color:"var(--text-secondary)",
+                      color:"#999",
                       overflow:"hidden",
                       textOverflow:"ellipsis",
                       whiteSpace:"nowrap"
@@ -4051,7 +3596,7 @@ function SubjectPage({ profile, onHome }) {
               justifyContent:"center",
               height:"100%",
               textAlign:"center",
-              color:"var(--text-secondary)"
+              color:"#666"
             }}>
               <div style={{ fontSize:"48px", marginBottom:"12px" }}>🎬</div>
               <div style={{ fontSize:"18px", fontWeight:"600", marginBottom:"8px" }}>No Videos Found</div>
@@ -4073,7 +3618,7 @@ function SubjectPage({ profile, onHome }) {
             padding:"20px"
           }} onClick={() => setSelectedVideo(null)}>
             <div style={{
-              background:"var(--bg-secondary)",
+              background:"white",
               borderRadius:"16px",
               width:"100%",
               maxWidth:"900px",
@@ -4110,14 +3655,14 @@ function SubjectPage({ profile, onHome }) {
                 flex:1,
                 overflow:"auto"
               }}>
-                <h2 style={{ margin:"0 0 10px 0", fontSize:"20px", fontWeight:"700", color:"var(--text-primary)" }}>
+                <h2 style={{ margin:"0 0 10px 0", fontSize:"20px", fontWeight:"700", color:"#0f172a" }}>
                   {selectedVideo.title}
                 </h2>
-                <p style={{ margin:"0 0 10px 0", fontSize:"13px", color:"var(--text-secondary)" }}>
+                <p style={{ margin:"0 0 10px 0", fontSize:"13px", color:"#64748b" }}>
                   📺 {selectedVideo.channel}
                 </p>
                 {selectedVideo.description && (
-                  <p style={{ margin:"0 0 15px 0", fontSize:"13px", color:"var(--text-secondary)", lineHeight:"1.6" }}>
+                  <p style={{ margin:"0 0 15px 0", fontSize:"13px", color:"#475569", lineHeight:"1.6" }}>
                     {selectedVideo.description}
                   </p>
                 )}
@@ -4129,7 +3674,7 @@ function SubjectPage({ profile, onHome }) {
                     display:"inline-block",
                     padding:"8px 16px",
                     background:BLUE,
-                    color:"var(--text-primary)",
+                    color:"white",
                     borderRadius:"8px",
                     textDecoration:"none",
                     fontSize:"13px",
@@ -4151,7 +3696,7 @@ function SubjectPage({ profile, onHome }) {
                   borderRadius:"50%",
                   border:"none",
                   background:"rgba(0,0,0,0.5)",
-                  color:"var(--text-primary)",
+                  color:"white",
                   fontSize:"20px",
                   cursor:"pointer",
                   fontWeight:"700",
@@ -4175,7 +3720,7 @@ function SubjectPage({ profile, onHome }) {
                 justifyContent:"center",
                 height:"100%",
                 textAlign:"center",
-                color:"var(--text-secondary)"
+                color:"#666"
               }}>
                 <div style={{ fontSize:"48px", marginBottom:"12px" }}>🎓</div>
                 <div style={{ fontSize:"18px", fontWeight:"600", marginBottom:"8px" }}>Ready to Learn!</div>
@@ -4183,24 +3728,6 @@ function SubjectPage({ profile, onHome }) {
               </div>
             )}
           </>
-        )}
-
-        {/* Flashcard View */}
-        {viewMode === "flashcards" && (
-          <FlashcardView topic={activeTopic} grade={profile.grade} subject={activeSubject} apiUrl={API} />
-        )}
-
-        {/* Practice Test View */}
-        {viewMode === "practice" && (
-          <PracticeTestView
-            topic={activeTopic} grade={profile.grade} subject={activeSubject} apiUrl={API}
-            onScoreSave={(payload) => saveProgress("test", payload)}
-          />
-        )}
-
-        {/* Progress View */}
-        {viewMode === "progress" && (
-          <ProgressView subject={activeSubject} grade={profile.grade} />
         )}
 
         {/* Limit Exceeded Message */}
@@ -4257,7 +3784,7 @@ function SubjectPage({ profile, onHome }) {
                   padding:"14px 18px",
                   borderRadius:"20px 20px 4px 20px",
                   background:BLUE,
-                  color:"var(--text-primary)",
+                  color:"white",
                   fontSize:"15px",
                   lineHeight:"1.6",
                   fontWeight:"500",
@@ -4272,33 +3799,13 @@ function SubjectPage({ profile, onHome }) {
               <div
                 style={{
                   maxWidth:"85%",
-                  background:"var(--bg-secondary)",
+                  background:"white",
                   borderRadius:"20px 20px 20px 4px",
                   boxShadow:"0 2px 8px rgba(0,0,0,0.1)",
                   overflow:"hidden"
                 }}
               >
-                {msg.streaming ? (
-                  // Loading animation while streaming — never show raw text
-                  <div style={{ padding:"24px 20px", textAlign:"center" }}>
-                    <div style={{ fontSize:"15px", fontWeight:"600", color:BLUE, marginBottom:"16px" }}>
-                      📚 Preparing your lesson on <em>{msg.topic}</em>...
-                    </div>
-                    <div style={{ display:"flex", gap:"10px", justifyContent:"center", marginBottom:"12px" }}>
-                      {["📖","💡","🌍","✨"].map((emoji, i) => (
-                        <div key={i} style={{
-                          width:"44px", height:"44px", borderRadius:"12px",
-                          background:"rgba(57,154,255,0.1)", border:`1.5px solid rgba(57,154,255,0.2)`,
-                          display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px",
-                          animation:`pulse 1.5s ease-in-out ${i*0.2}s infinite`
-                        }}>{emoji}</div>
-                      ))}
-                    </div>
-                    <div style={{ fontSize:"13px", color:"var(--text-secondary)" }}>
-                      AI is writing your personalised lesson...
-                    </div>
-                  </div>
-                ) : msg.sections ? (
+                {msg.sections ? (
                   // Structured content with sections
                   <div style={{ padding:"18px 20px" }}>
                     <div style={{ fontSize:"16px", fontWeight:"700", color:BLUE, marginBottom:"14px" }}>
@@ -4308,49 +3815,57 @@ function SubjectPage({ profile, onHome }) {
                     {/* Definition Section */}
                     {msg.sections.definition && (
                       <div style={{ marginBottom:"16px" }}>
-                        <div style={{ fontSize:"14px", fontWeight:"700", color:"var(--text-primary)", marginBottom:"6px" }}>
+                        <div style={{ fontSize:"14px", fontWeight:"700", color:"#333", marginBottom:"6px" }}>
                           📖 What is it?
                         </div>
-                        <div style={{ fontSize:"14px", lineHeight:"1.6", color:"var(--text-primary)", paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, ...getMessageStyles() }}
-                          dangerouslySetInnerHTML={{ __html: formatMessage(formatSectionForGrade(msg.sections.definition)) }} />
+                        <div style={{ fontSize:"14px", lineHeight:"1.6", color:"#555", paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, ...getMessageStyles() }}>
+                          {formatSectionForGrade(msg.sections.definition)}
+                        </div>
                       </div>
                     )}
 
                     {/* Key Concepts Section */}
                     {msg.sections.keyPoints && (
                       <div style={{ marginBottom:"16px" }}>
-                        <div style={{ fontSize:"14px", fontWeight:"700", color:"var(--text-primary)", marginBottom:"8px" }}>
+                        <div style={{ fontSize:"14px", fontWeight:"700", color:"#333", marginBottom:"8px" }}>
                           💡 Key Ideas
                         </div>
-                        <div style={{ fontSize:"14px", lineHeight:"1.7", color:"var(--text-primary)", paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, ...getMessageStyles() }}
-                          dangerouslySetInnerHTML={{ __html: formatMessage(formatSectionForGrade(msg.sections.keyPoints)) }} />
+                        <div style={{ fontSize:"14px", lineHeight:"1.7", color:"#555", paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, ...getMessageStyles() }}>
+                          {formatSectionForGrade(msg.sections.keyPoints).split("\n").map((line, idx) => (
+                            <div key={idx} style={{ marginBottom: idx === formatSectionForGrade(msg.sections.keyPoints).split("\n").length - 1 ? 0 : "6px" }}>
+                              {line}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {/* Real-World Example Section */}
                     {msg.sections.example && (
                       <div style={{ marginBottom:"16px" }}>
-                        <div style={{ fontSize:"14px", fontWeight:"700", color:"var(--text-primary)", marginBottom:"6px" }}>
+                        <div style={{ fontSize:"14px", fontWeight:"700", color:"#333", marginBottom:"6px" }}>
                           🌍 Real-World Example
                         </div>
-                        <div style={{ fontSize:"14px", lineHeight:"1.6", color:"var(--text-primary)", paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, background:"rgba(57,154,255,0.05)", padding:"12px", borderRadius:"6px", ...getMessageStyles() }}
-                          dangerouslySetInnerHTML={{ __html: formatMessage(formatSectionForGrade(msg.sections.example)) }} />
+                        <div style={{ fontSize:"14px", lineHeight:"1.6", color:"#555", paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, background:"rgba(57,154,255,0.05)", padding:"12px", borderRadius:"6px", ...getMessageStyles() }}>
+                          {formatSectionForGrade(msg.sections.example)}
+                        </div>
                       </div>
                     )}
 
                     {/* Summary Section */}
                     {msg.sections.summary && (
                       <div style={{ marginBottom:"16px" }}>
-                        <div style={{ fontSize:"14px", fontWeight:"700", color:"var(--text-primary)", marginBottom:"6px" }}>
+                        <div style={{ fontSize:"14px", fontWeight:"700", color:"#333", marginBottom:"6px" }}>
                           ✨ Remember This
                         </div>
-                        <div style={{ fontSize:"14px", fontWeight:"600", lineHeight:"1.6", color:BLUE, paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, background:"rgba(57,154,255,0.08)", padding:"12px", borderRadius:"6px", ...getMessageStyles() }}
-                          dangerouslySetInnerHTML={{ __html: formatMessage(formatSectionForGrade(msg.sections.summary)) }} />
+                        <div style={{ fontSize:"14px", fontWeight:"600", lineHeight:"1.6", color:BLUE, paddingLeft:"16px", borderLeft:`3px solid ${BLUE}`, background:"rgba(57,154,255,0.08)", padding:"12px", borderRadius:"6px", ...getMessageStyles() }}>
+                          {formatSectionForGrade(msg.sections.summary)}
+                        </div>
                       </div>
                     )}
 
                     {/* Hear Explanation Button */}
-                    <div style={{ display:"flex", gap:"10px", marginTop:"16px", paddingTop:"12px", borderTop:`1px solid #e0e8f3`, flexWrap:"wrap" }}>
+                    <div style={{ display:"flex", gap:"10px", marginTop:"16px", paddingTop:"12px", borderTop:`1px solid #e0e8f3` }}>
                       <button
                         onClick={() => speakResponse(msg.content)}
                         style={{
@@ -4359,7 +3874,7 @@ function SubjectPage({ profile, onHome }) {
                           gap:"6px",
                           padding:"10px 16px",
                           background: voiceState === "speaking" ? "#d9534f" : BLUE,
-                          color:"var(--text-primary)",
+                          color:"white",
                           border:"none",
                           borderRadius:"8px",
                           cursor:"pointer",
@@ -4381,15 +3896,13 @@ function SubjectPage({ profile, onHome }) {
                         {voiceState === "speaking" ? "⏹️ Stop" : "🔊 Hear Explanation"}
                       </button>
                     </div>
-
                   </div>
                 ) : (
-                  // Fallback plain text for practice questions / follow-up answers
-                  <div style={{ padding:"14px 18px", color:"var(--text-primary)", fontSize:"15px", lineHeight:"1.6", ...getMessageStyles() }}>
+                  // Fallback to plain text (for practice questions, etc.)
+                  <div style={{ padding:"14px 18px", color:"#333", fontSize:"15px", lineHeight:"1.6", ...getMessageStyles() }}>
                     {formatContentForGrade(msg.content)}
                   </div>
                 )}
-
               </div>
             )}
           </div>
@@ -4427,7 +3940,7 @@ function SubjectPage({ profile, onHome }) {
       {activeTopic && (
         <div style={{
           padding:"16px 20px",
-          background:"var(--bg-secondary)",
+          background:"white",
           borderTop:"2px solid rgba(57,154,255,0.2)",
           display:"flex",
           gap:"12px",
@@ -4448,9 +3961,7 @@ function SubjectPage({ profile, onHome }) {
               fontFamily:FONT,
               fontWeight:"500",
               outline:"none",
-              transition:"all 0.2s",
-              background:"var(--bg-tertiary)",
-              color:"var(--text-primary)"
+              transition:"all 0.2s"
             }}
             onFocus={(e) => e.target.style.borderColor = BLUE}
             onBlur={(e) => e.target.style.borderColor = BORDER}
@@ -4462,7 +3973,7 @@ function SubjectPage({ profile, onHome }) {
             style={{
               padding:"10px 14px",
               background:voiceState === "listening" ? "#ef4444" : voiceState === "processing" ? "#3b82f6" : BLUE,
-              color:"var(--text-primary)",
+              color:"white",
               border:"none",
               borderRadius:"10px",
               cursor:"pointer",
@@ -4497,8 +4008,8 @@ function SubjectPage({ profile, onHome }) {
             disabled={loading || !input.trim()}
             style={{
               padding:"14px 28px",
-              background:loading || !input.trim() ? "var(--border-color)" : BLUE,
-              color:loading || !input.trim() ? "var(--text-secondary)" : "white",
+              background:loading || !input.trim() ? "#ccc" : BLUE,
+              color:"white",
               border:"none",
               borderRadius:"12px",
               cursor:loading || !input.trim() ? "default" : "pointer",
@@ -4552,17 +4063,11 @@ function SubjectPage({ profile, onHome }) {
 // ─── MAIN APP COMPONENT ─────────────────────────────────────────────────────────
 export default function App() {
   const [profile, setProfile] = useState(null);
-  const [seenLanding, setSeenLanding] = useState(() => !!localStorage.getItem("ai_tutor_seen_landing"));
 
   const handleStart = (p) => {
     console.log("App received profile:", p);
-    localStorage.setItem("ai_tutor_profile", JSON.stringify(p));
     setProfile(p);
   };
-
-  if (!seenLanding && !profile) {
-    return <Landing onEnter={() => { localStorage.setItem("ai_tutor_seen_landing", "1"); setSeenLanding(true); }} />;
-  }
 
   if (!profile) {
     return (
@@ -4576,10 +4081,7 @@ export default function App() {
     <>
       <SubjectPage
         profile={profile}
-        onHome={() => {
-          localStorage.removeItem("ai_tutor_profile");
-          setProfile(null);
-        }}
+        onHome={() => setProfile(null)}
       />
     </>
   );
