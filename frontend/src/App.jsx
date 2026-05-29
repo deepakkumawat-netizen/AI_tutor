@@ -1007,7 +1007,7 @@ function HomePage({ onStart }) {
 
   const handleStart = () => {
     if (!canStart) return;
-    const finalGrade = age ? ageToGrade(age) : grade;
+    const finalGrade = grade;
     const isCustom = !subject || subject === "custom";
     const subjectId = isCustom ? "custom" : subject;
     const subjectLabel = isCustom
@@ -1055,7 +1055,7 @@ function HomePage({ onStart }) {
               <input
                 type="number" min={5} max={20}
                 value={age}
-                onChange={e => { setAge(e.target.value); if(e.target.value) setGrade(ageToGrade(e.target.value)); }}
+                onChange={e => setAge(e.target.value)}
                 placeholder="e.g. 13"
                 style={inp}
               />
@@ -1135,19 +1135,13 @@ function HomePage({ onStart }) {
               ref={customInputRef}
               value={customSubject}
               onChange={e => { setCustomSubject(e.target.value); if(e.target.value) setSubject(""); }}
-              onKeyDown={e => {
-                if (e.key === "Enter" && customSubject.trim()) {
-                  const finalGrade = age ? ageToGrade(age) : grade;
-                  onStart({ grade: finalGrade, subject: "custom", subjectLabel: customSubject.trim(), topic: customSubject.trim(), level: "some", age });
-                }
-              }}
               placeholder="e.g. Economics, Philosophy, Guitar Theory, Cooking..."
               style={{ ...inp, flex:1 }}
             />
             {customSubject.trim() && (
               <button
                 onClick={() => {
-                  const finalGrade = age ? ageToGrade(age) : grade;
+                  const finalGrade = grade;
                   onStart({ grade: finalGrade, subject: "custom", subjectLabel: customSubject.trim(), topic: customSubject.trim(), level: "some", age });
                 }}
                 style={{

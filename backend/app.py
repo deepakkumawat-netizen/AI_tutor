@@ -286,24 +286,32 @@ async def api_practice_question(request: PracticeQuestionRequest):
 
 @app.post("/api/flashcards")
 async def generate_flashcards(request: FlashcardRequest):
-    """Generate flashcards for a topic"""
-    from mcp_server import client as openai_client, OPENAI_MODEL
+    """Generate flashcards for a topic, calibrated to the student's grade via NLP."""
+    from mcp_server import client as openai_client, OPENAI_MODEL, get_grade_language
+    lang_style = get_grade_language(request.grade)
     try:
         resp = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[{
                 "role": "system",
-                "content": "You are an expert teacher creating flashcards. Return ONLY valid JSON, no markdown."
+                "content": (
+                    f"You are an expert teacher creating flashcards for a {request.grade} student.\n\n"
+                    f"{lang_style}\n\n"
+                    "Both the FRONT (key term/question) and BACK (definition/answer) must use vocabulary "
+                    f"and sentence structure appropriate for {request.grade}. Never use words harder than "
+                    "the target term itself on the back side. Return ONLY valid JSON, no markdown."
+                )
             }, {
                 "role": "user",
                 "content": (
                     f"Create {request.num_cards} flashcards for '{request.topic}' "
-                    f"({request.subject}, {request.grade}).\n"
-                    "Each flashcard: front = key term/question, back = clear definition/answer (1-2 sentences).\n"
+                    f"(subject: {request.subject}, reading level: {request.grade}).\n"
+                    "Each flashcard: front = key term/question (1-5 words), back = clear definition/answer "
+                    "(1-2 short sentences using grade-appropriate words).\n"
                     'Return JSON: {"flashcards": [{"front": "...", "back": "..."}]}'
                 )
             }],
-            temperature=0.7,
+            temperature=0.6,
             max_tokens=1200,
         )
         import json
