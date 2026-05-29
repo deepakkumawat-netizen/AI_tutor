@@ -4580,17 +4580,32 @@ function ProfileMenu({ onSignOut }) {
 }
 
 export default function App() {
-  const [profile, setProfile] = useState(null);
-  const [seenLanding, setSeenLanding] = useState(() => !!localStorage.getItem("ai_tutor_seen_landing"));
+  const [profile, setProfile] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ai_tutor_profile") || "null"); } catch { return null; }
+  });
+  const [account, setAccount] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ai_tutor_account") || "null"); } catch { return null; }
+  });
+  // In-memory only: lets "Try it now" bypass auth for the current session,
+  // but every fresh visit re-shows the landing page until the user logs in.
+  const [guestMode, setGuestMode] = useState(false);
 
   const handleStart = (p) => {
-    console.log("App received profile:", p);
     localStorage.setItem("ai_tutor_profile", JSON.stringify(p));
     setProfile(p);
   };
 
-  if (!seenLanding && !profile) {
-    return <Landing onEnter={() => { localStorage.setItem("ai_tutor_seen_landing", "1"); setSeenLanding(true); }} />;
+  // Show landing whenever the visitor is not logged in (no saved account)
+  // and has not chosen "Try it now" in this session.
+  if (!account && !guestMode) {
+    return (
+      <Landing
+        onEnter={() => {
+          try { setAccount(JSON.parse(localStorage.getItem("ai_tutor_account") || "null")); } catch {}
+          setGuestMode(true);
+        }}
+      />
+    );
   }
 
   if (!profile) {
@@ -4607,9 +4622,7 @@ export default function App() {
         profile={profile}
         onHome={() => {
           localStorage.removeItem("ai_tutor_profile");
-          localStorage.removeItem("ai_tutor_seen_landing");
           setProfile(null);
-          setSeenLanding(false);
         }}
       />
     </>
