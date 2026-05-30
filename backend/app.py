@@ -377,8 +377,16 @@ class SaveChatRequest(BaseModel):
     request_data: dict
     response_preview: str
     response_content: str = None
+    session_id: Optional[str] = None
 
 class ChatHistoryRequest(BaseModel):
+    student_id: str
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+    session_id: Optional[str] = None
+    limit: int = 100
+
+class SessionListRequest(BaseModel):
     student_id: str
 
 class UsageCheckRequest(BaseModel):
@@ -439,7 +447,7 @@ async def mcp_call(request: MCPCallRequest):
 
 @app.post("/api/save-chat")
 async def save_chat(request: SaveChatRequest):
-    """Save a chat to history"""
+    """Save a chat to history (tagged with the active login session_id)"""
     try:
         chat_id = db.save_chat(
             request.student_id,
@@ -448,31 +456,44 @@ async def save_chat(request: SaveChatRequest):
             request.subject,
             request.request_data,
             request.response_preview,
-            request.response_content or request.response_preview
+            request.response_content or request.response_preview,
+            session_id=request.session_id,
         )
-        return {
-            "success": True,
-            "chat_id": chat_id,
-            "message": "Chat saved to history"
-        }
+        return {"success": True, "chat_id": chat_id, "message": "Chat saved to history"}
     except Exception as e:
         print(f"[ERROR] Failed to save chat: {e}")
         return {"success": False, "error": str(e)}
 
 @app.post("/api/chat-history")
 async def get_chat_history(request: ChatHistoryRequest):
-    """Get last 7 chats for a student"""
+    """Get chat history with optional date/session filters"""
     try:
-        chats = db.get_last_7_chats(request.student_id)
+        chats = db.get_history(
+            request.student_id,
+            date_from=request.date_from,
+            date_to=request.date_to,
+            session_id=request.session_id,
+            limit=request.limit,
+        )
         return {
             "student_id": request.student_id,
             "chats": chats,
             "count": len(chats),
-            "success": True
+            "success": True,
         }
     except Exception as e:
         print(f"[ERROR] Failed to get chat history: {e}")
         return {"success": False, "error": str(e)}
+
+@app.post("/api/chat-sessions")
+async def list_chat_sessions(request: SessionListRequest):
+    """List distinct login sessions for the session-filter dropdown."""
+    try:
+        sessions = db.list_sessions(request.student_id)
+        return {"student_id": request.student_id, "sessions": sessions, "success": True}
+    except Exception as e:
+        print(f"[ERROR] Failed to list chat sessions: {e}")
+        return {"success": False, "error": str(e), "sessions": []}
 
 @app.post("/api/check-usage")
 async def check_usage(request: UsageCheckRequest):

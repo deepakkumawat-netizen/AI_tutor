@@ -31,6 +31,7 @@ class TutorDatabase:
             CREATE TABLE IF NOT EXISTS chat_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 student_id TEXT NOT NULL,
+                session_id TEXT,
                 topic TEXT,
                 grade_level TEXT,
                 subject TEXT,
@@ -40,6 +41,13 @@ class TutorDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Migration: backfill session_id on older DBs
+        try:
+            cols = [r[1] for r in c.execute("PRAGMA table_info(chat_history)").fetchall()]
+            if 'session_id' not in cols:
+                c.execute("ALTER TABLE chat_history ADD COLUMN session_id TEXT")
+        except Exception as _e:
+            print(f"[DB] session_id migration warning: {_e}")
 
         # Usage tracking table
         c.execute('''
@@ -71,8 +79,9 @@ class TutorDatabase:
         print("[DB] Database initialized")
 
     def save_chat(self, student_id: str, topic: str, grade_level: str, subject: str,
-                  request_data: dict, response_preview: str, response_content: str) -> int:
-        """Save chat to history"""
+                  request_data: dict, response_preview: str, response_content: str,
+                  session_id: str = None) -> int:
+        """Save chat to history (tagged with active login session_id)"""
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 
@@ -80,24 +89,77 @@ class TutorDatabase:
 
         c.execute('''
             INSERT INTO chat_history
-            (student_id, topic, grade_level, subject, request_data, response_preview, response_content)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (student_id, topic, grade_level, subject,
+            (student_id, session_id, topic, grade_level, subject, request_data, response_preview, response_content)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (student_id, session_id, topic, grade_level, subject,
               json.dumps(request_data), response_preview[:200], full_content))
 
         conn.commit()
         chat_id = c.lastrowid
         conn.close()
 
-        # Cleanup old chats - keep only last 7
-        deleted = self.cleanup_old_chats(student_id, keep_count=7)
+        # Keep last 100 so date/session filters are useful.
+        deleted = self.cleanup_old_chats(student_id, keep_count=100)
         if deleted > 0:
             print(f"[DB] Cleaned up {deleted} old chats for student {student_id}")
 
         return chat_id
 
+    def get_history(self, student_id: str, date_from: str = None, date_to: str = None,
+                    session_id: str = None, limit: int = 100) -> list:
+        """Get history with optional date/session filters."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        sql = '''SELECT id, session_id, topic, grade_level, subject,
+                        request_data, response_preview, response_content, created_at
+                 FROM chat_history WHERE student_id = ?'''
+        params = [student_id]
+        if date_from:
+            sql += ' AND date(created_at) >= date(?)'; params.append(date_from)
+        if date_to:
+            sql += ' AND date(created_at) <= date(?)'; params.append(date_to)
+        if session_id:
+            sql += ' AND session_id = ?'; params.append(session_id)
+        sql += ' ORDER BY created_at DESC LIMIT ?'
+        params.append(int(limit))
+        c.execute(sql, params)
+        rows = c.fetchall()
+        conn.close()
+        out = []
+        for r in rows:
+            preview = r[6] or ''
+            content = r[7] or preview
+            out.append({
+                'id': r[0],
+                'session_id': r[1],
+                'topic': r[2],
+                'grade_level': r[3],
+                'subject': r[4],
+                'request_data': json.loads(r[5]) if r[5] else {},
+                'preview': preview,
+                'content': content,
+                'created_at': r[8],
+            })
+        return out
+
+    def list_sessions(self, student_id: str) -> list:
+        """List distinct login sessions for the session-filter dropdown."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute('''
+            SELECT session_id, COUNT(*) as n, MIN(created_at), MAX(created_at)
+            FROM chat_history
+            WHERE student_id = ? AND session_id IS NOT NULL AND session_id != ''
+            GROUP BY session_id
+            ORDER BY MAX(created_at) DESC
+            LIMIT 50
+        ''', (student_id,))
+        rows = c.fetchall()
+        conn.close()
+        return [{'session_id': r[0], 'count': r[1], 'first_at': r[2], 'last_at': r[3]} for r in rows]
+
     def get_last_7_chats(self, student_id: str) -> list:
-        """Get last 7 chats for a student"""
+        """Get last 7 chats for a student (back-compat)"""
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
 

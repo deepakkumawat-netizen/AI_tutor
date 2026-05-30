@@ -3118,12 +3118,14 @@ function SubjectPage({ profile, onHome }) {
           setTimeout(() => { if (usageCounterRef.current) usageCounterRef.current.refresh(); }, 100);
         } catch {}
 
-        // Save chat
+        // Save chat (tagged with active login session_id)
         try {
           await fetch(`${API}/api/save-chat`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              student_id: studentId, topic, grade_level: profile.grade,
+              student_id: studentId,
+              session_id: localStorage.getItem('ai_tutor_session_id') || null,
+              topic, grade_level: profile.grade,
               subject: profile.subject || "General",
               request_data: { topic },
               response_preview: explanation.substring(0, 200),
@@ -3226,6 +3228,7 @@ function SubjectPage({ profile, onHome }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   student_id: studentId,
+                  session_id: localStorage.getItem('ai_tutor_session_id') || null,
                   topic: text,
                   grade_level: profile.grade,
                   subject: profile.subject || "General",
@@ -3361,6 +3364,7 @@ function SubjectPage({ profile, onHome }) {
             localStorage.removeItem("ai_tutor_account");
             localStorage.removeItem("ai_tutor_profile");
             localStorage.removeItem("ai_tutor_seen_landing");
+            localStorage.removeItem("ai_tutor_session_id");
             window.location.reload();
           }} />
 
@@ -4591,8 +4595,16 @@ export default function App() {
     setProfile(p);
   };
 
+  // Mint a fresh session_id every time the user enters the tool so each
+  // login/visit groups its own history entries (session = per login).
+  const enterTool = () => {
+    const sid = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    localStorage.setItem('ai_tutor_session_id', sid);
+    setSeenLanding(true);
+  };
+
   if (!seenLanding) {
-    return <Landing onEnter={() => setSeenLanding(true)} />;
+    return <Landing onEnter={enterTool} />;
   }
 
   if (!profile) {
