@@ -2635,9 +2635,10 @@ const SUBJECT_EMOJIS = {
   webdev: "🌐"
 };
 
-// Left-rail navigation that replaces the old horizontal chip tabs.
-// Holds Grade + Subject pickers (no separate HomePage anymore) plus the
-// 5 section nav buttons (Lesson / Videos / Flashcards / Test / Progress).
+// Left-rail navigation that replaces the old horizontal chip tabs and the
+// removed Subject Switching Sidebar. Holds Grade + Subject pickers plus the
+// 5 section nav buttons. "Other Subject" reveals a typed/spoken custom
+// subject input that drives topic generation via /api/mcp/get-topics.
 function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome }) {
   const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
   const SUBJECTS_LIST = Object.keys(SUBJECTS).map(k => ({ id: k, name: SUBJECTS[k]?.name || k, emoji: SUBJECT_EMOJIS[SUBJECTS[k]?.name] || "📚" }));
@@ -2648,6 +2649,47 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
     { id:"practice",   label:"Test",       icon:"📝" },
     { id:"progress",   label:"Progress",   icon:"📊" },
   ];
+
+  const isCustom = activeSubject === "custom";
+  const [customDraft, setCustomDraft] = useState(profile.subjectLabel || "");
+  const [listening, setListening] = useState(false);
+  const recogRef = useRef(null);
+
+  // Sync the draft if the profile's subjectLabel changes outside this rail.
+  useEffect(() => { setCustomDraft(profile.subjectLabel || ""); }, [profile.subjectLabel]);
+
+  const commitCustomSubject = (text) => {
+    const t = (text || "").trim();
+    if (!t) return;
+    setActiveSubject("custom");
+    // subjectLabel is what /api/mcp/get-topics receives when subject==="custom"
+    onUpdateProfile?.({ subject: "custom", subjectLabel: t });
+  };
+
+  const startVoice = () => {
+    const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) {
+      alert("Voice input requires Chrome / Edge.");
+      return;
+    }
+    if (listening) { recogRef.current?.stop(); return; }
+    const r = new SR();
+    recogRef.current = r;
+    r.continuous = false;
+    r.interimResults = false;
+    r.lang = "en-US";
+    r.onstart = () => setListening(true);
+    r.onresult = (e) => {
+      const transcript = Array.from(e.results).map(x => x[0].transcript).join(" ").trim();
+      if (transcript) {
+        setCustomDraft(transcript);
+        commitCustomSubject(transcript);
+      }
+    };
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+    r.start();
+  };
   return (
     <aside style={{
       position:"fixed", left:0, top:0, bottom:0, width:220,
@@ -2666,6 +2708,7 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
           onChange={e => onUpdateProfile?.({ grade: e.target.value })}
           style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
         >
+          <option value="">Select grade…</option>
           {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
       </div>
@@ -2673,13 +2716,51 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
       <div>
         <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>Subject</label>
         <select
-          value={activeSubject || ""}
-          onChange={e => { setActiveSubject(e.target.value); onUpdateProfile?.({ subject: e.target.value }); }}
+          value={isCustom ? "custom" : (activeSubject || "")}
+          onChange={e => {
+            const v = e.target.value;
+            if (v === "custom") {
+              setActiveSubject("custom");
+              onUpdateProfile?.({ subject: "custom", subjectLabel: profile.subjectLabel || "" });
+            } else {
+              setActiveSubject(v);
+              onUpdateProfile?.({ subject: v, subjectLabel: "" });
+            }
+          }}
           style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
         >
           <option value="">Select subject…</option>
           {SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)}
+          <option value="custom">✨ Other Subject…</option>
         </select>
+
+        {/* Other-subject search bar — typed or spoken. On submit it sets
+            profile.subjectLabel which feeds /api/mcp/get-topics, so topic
+            chips load automatically for the typed subject + grade. */}
+        {isCustom && (
+          <div style={{ marginTop:8, display:"flex", gap:6, alignItems:"center" }}>
+            <input
+              type="text"
+              value={customDraft}
+              onChange={e => setCustomDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") commitCustomSubject(customDraft); }}
+              onBlur={() => commitCustomSubject(customDraft)}
+              placeholder="Type subject e.g. Astronomy…"
+              style={{ flex:1, padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", fontFamily:"inherit" }}
+            />
+            <button
+              type="button"
+              onClick={startVoice}
+              title={listening ? "Stop" : "Speak the subject"}
+              style={{
+                width:32, height:32, borderRadius:8, border:"1.5px solid var(--border-color)", cursor:"pointer",
+                background: listening ? "#ef4444" : "var(--bg-primary)",
+                color: listening ? "#fff" : "var(--text-primary)", fontSize:14,
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}
+            >🎤</button>
+          </div>
+        )}
       </div>
 
       <div style={{ borderTop:"1px solid var(--border-color)", paddingTop:12, display:"flex", flexDirection:"column", gap:4 }}>
@@ -3374,26 +3455,7 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         boxShadow:"0 4px 12px rgba(57,154,255,0.3)"
       }}>
         <div style={{ display:"flex", gap:"12px", alignItems:"center" }}>
-          <button
-            onClick={() => setShowSidebar(!showSidebar)}
-            style={{
-              background:"rgba(255,255,255,0.2)",
-              border:"none",
-              cursor:"pointer",
-              fontSize:"24px",
-              padding:"8px",
-              borderRadius:"8px",
-              transition:"all 0.2s",
-              width:"40px",
-              height:"40px",
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center"
-            }}
-            title="Switch subject"
-          >
-            ☰
-          </button>
+          {/* Hamburger removed — subject switching is in the LessonRail. */}
           <button
             onClick={onHome}
             style={{
@@ -3503,8 +3565,11 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
 
       </div>
 
-      {/* Subject Switching Sidebar */}
-      {showSidebar && (
+      {/* Old subjects sidebar removed — LessonRail (the left rail) now has
+          the Grade + Subject pickers, so this drawer was redundant and was
+          showing on top of the new rail. Keeping the showSidebar state in
+          case anything still references it, just not rendering this block. */}
+      {false && showSidebar && (
         <>
           {/* Backdrop */}
           <div
@@ -3876,40 +3941,44 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
                 </div>
               </div>
             ) : (
-              /* ── Regular topic chips after API responds ── */
+              /* ── Regular topic chips after API responds — bigger cards. ── */
               <div style={{
                 display:"grid",
-                gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))",
-                gap:"10px",
-                maxHeight:"250px",
+                gridTemplateColumns:"repeat(auto-fill, minmax(220px, 1fr))",
+                gap:"16px",
+                maxHeight:"460px",
                 overflowY:"auto",
-                padding:"12px",
+                padding:"16px",
                 background:"var(--bg-secondary)",
                 border:`1.5px solid ${BORDER}`,
-                borderRadius:"12px",
-                marginTop:"12px"
+                borderRadius:"14px",
+                marginTop:"16px"
               }}>
                 {topicList.slice(0, 12).map((topic, i) => (
                   <button
                     key={i}
                     onClick={() => chooseTopic(topic)}
                     style={{
-                      padding:"12px 10px",
+                      padding:"22px 18px",
+                      minHeight: 100,
                       background:"var(--bg-secondary)",
-                      border:`1px solid ${BORDER}`,
-                      borderRadius:"10px",
+                      border:`2px solid ${BORDER}`,
+                      borderRadius:"14px",
                       cursor:"pointer",
-                      fontSize:"13px",
-                      fontWeight:"600",
+                      fontSize:"16px",
+                      fontWeight:"700",
                       color:"var(--text-primary)",
                       transition:"all 0.2s",
                       textAlign:"center",
-                      lineHeight:"1.4"
+                      lineHeight:"1.4",
+                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6,
                     }}
-                    onMouseEnter={e => { e.target.style.background="var(--bg-tertiary)"; e.target.style.transform="translateY(-2px)"; e.target.style.boxShadow="0 4px 12px rgba(57,154,255,0.2)"; }}
-                    onMouseLeave={e => { e.target.style.background="var(--bg-secondary)"; e.target.style.transform="translateY(0)"; e.target.style.boxShadow="none"; }}
+                    onMouseEnter={e => { e.currentTarget.style.background="var(--bg-tertiary)"; e.currentTarget.style.transform="translateY(-3px)"; e.currentTarget.style.boxShadow="0 6px 18px rgba(57,154,255,0.25)"; e.currentTarget.style.borderColor=BLUE; }}
+                    onMouseLeave={e => { e.currentTarget.style.background="var(--bg-secondary)"; e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="none"; e.currentTarget.style.borderColor=BORDER; }}
                   >
-                    <span style={{ fontSize:"11px", fontWeight:"800", color:"rgba(57,154,255,0.7)", marginRight:"4px" }}>{i + 1}.</span>{CHIP_EMOJIS[i % CHIP_EMOJIS.length]} {topic}
+                    <span style={{ fontSize:"13px", fontWeight:"800", color:BLUE, opacity:0.7 }}>{i + 1}.</span>
+                    <span style={{ fontSize: 28, lineHeight: 1 }}>{CHIP_EMOJIS[i % CHIP_EMOJIS.length]}</span>
+                    <span>{topic}</span>
                   </button>
                 ))}
               </div>
@@ -4702,7 +4771,9 @@ export default function App() {
     localStorage.setItem('ai_tutor_session_id', sid);
     setSeenLanding(true);
     if (!profile) {
-      const initial = { name: 'Student', age: '', grade: 'Grade 6', subject: '', topic: '' };
+      // Grade + subject start empty so the student picks them in the
+      // LessonRail — no more "Grade 6" auto-fill default.
+      const initial = { name: 'Student', age: '', grade: '', subject: '', topic: '' };
       localStorage.setItem('ai_tutor_profile', JSON.stringify(initial));
       setProfile(initial);
     }
@@ -4714,7 +4785,7 @@ export default function App() {
 
   // SubjectPage handles everything from here — grade + subject pickers now
   // live in its left sidebar, no separate HomePage form.
-  const activeProfile = profile || { name: 'Student', age: '', grade: 'Grade 6', subject: '', topic: '' };
+  const activeProfile = profile || { name: 'Student', age: '', grade: '', subject: '', topic: '' };
 
   return (
     <SubjectPage
