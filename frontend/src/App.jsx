@@ -17,6 +17,13 @@ const API = window.location.hostname === 'localhost'
 
 const ALL_SUBJECTS = Object.entries(SUBJECTS).map(([id, sub]) => ({ id, ...sub }));
 
+// Build a Pollinations.ai illustration URL scoped to the active lesson
+// topic + grade, so the lesson view always has a relevant hero image.
+function lessonImageUrl(topic, grade, seed = 1) {
+  const prompt = `Educational illustration for ${grade || "school"} students about ${topic || "learning"}, friendly cartoon style, bright colors, clean white background`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=640&height=480&seed=${seed}&nologo=true`;
+}
+
 function ageToGrade(age) {
   const n = parseInt(age);
   if (isNaN(n)) return "Grade 6";
@@ -2225,7 +2232,7 @@ async function fetchLessonScript(subject, subjectLabel, topic, grade, level) {
 
 
 // ─── FLASHCARD VIEW ──────────────────────────────────────────────────────────
-function FlashcardView({ topic, grade, subject, apiUrl }) {
+function FlashcardView({ topic, grade, subject, apiUrl, lessonContext }) {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -2234,14 +2241,18 @@ function FlashcardView({ topic, grade, subject, apiUrl }) {
 
   useEffect(() => {
     if (topic) loadCards();
-  }, [topic]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic, lessonContext]);
 
   const loadCards = async () => {
     setLoading(true); setCards([]); setIdx(0); setFlipped(false); setDone(new Set());
     try {
       const res = await fetch(`${apiUrl}/api/flashcards`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, grade, subject, num_cards: 8 }),
+        // lesson_context is the actual lesson text the student is reading
+        // — used by the backend to derive cards from the lesson content
+        // instead of just the topic name.
+        body: JSON.stringify({ topic, grade, subject, num_cards: 8, lesson_context: lessonContext || "" }),
       });
       const data = await res.json();
       if (data.flashcards) setCards(data.flashcards);
@@ -2624,7 +2635,80 @@ const SUBJECT_EMOJIS = {
   webdev: "🌐"
 };
 
-function SubjectPage({ profile, onHome }) {
+// Left-rail navigation that replaces the old horizontal chip tabs.
+// Holds Grade + Subject pickers (no separate HomePage anymore) plus the
+// 5 section nav buttons (Lesson / Videos / Flashcards / Test / Progress).
+function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome }) {
+  const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
+  const SUBJECTS_LIST = Object.keys(SUBJECTS).map(k => ({ id: k, name: SUBJECTS[k]?.name || k, emoji: SUBJECT_EMOJIS[SUBJECTS[k]?.name] || "📚" }));
+  const tabs = [
+    { id:"lesson",     label:"Lesson",     icon:"📚" },
+    { id:"videos",     label:"Videos",     icon:"🎬" },
+    { id:"flashcards", label:"Flashcards", icon:"📇" },
+    { id:"practice",   label:"Test",       icon:"📝" },
+    { id:"progress",   label:"Progress",   icon:"📊" },
+  ];
+  return (
+    <aside style={{
+      position:"fixed", left:0, top:0, bottom:0, width:220,
+      background:"var(--bg-secondary)", borderRight:"1.5px solid var(--border-color)",
+      display:"flex", flexDirection:"column", padding:"16px 12px", gap:14, overflowY:"auto", zIndex:50,
+    }}>
+      <div onClick={onHome} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", marginBottom:6 }}>
+        <div style={{ width:34, height:34, borderRadius:9, background:BLUE, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontSize:18 }}>🤖</div>
+        <span style={{ fontSize:16, fontWeight:800, color:"var(--text-primary)" }}>AI <span style={{ color:BLUE }}>Tutor</span></span>
+      </div>
+
+      <div>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>Grade</label>
+        <select
+          value={profile.grade || ""}
+          onChange={e => onUpdateProfile?.({ grade: e.target.value })}
+          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
+        >
+          {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>Subject</label>
+        <select
+          value={activeSubject || ""}
+          onChange={e => { setActiveSubject(e.target.value); onUpdateProfile?.({ subject: e.target.value }); }}
+          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
+        >
+          <option value="">Select subject…</option>
+          {SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)}
+        </select>
+      </div>
+
+      <div style={{ borderTop:"1px solid var(--border-color)", paddingTop:12, display:"flex", flexDirection:"column", gap:4 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:4, paddingLeft:6 }}>Sections</div>
+        {tabs.map(t => {
+          const active = viewMode === t.id;
+          return (
+            <button key={t.id} onClick={() => setViewMode(t.id)}
+              style={{
+                display:"flex", alignItems:"center", gap:10,
+                padding:"10px 12px", borderRadius:9, border:"none",
+                background: active ? BLUE : "transparent",
+                color: active ? "#fff" : "var(--text-primary)",
+                fontWeight: active ? 700 : 600, fontSize:14,
+                cursor:"pointer", textAlign:"left", transition:"background 0.15s",
+                fontFamily:"inherit",
+              }}
+            >
+              <span style={{ fontSize:18 }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+function SubjectPage({ profile, onHome, onUpdateProfile }) {
   const [messages, setMessages]     = useState([]);
   const [input, setInput]           = useState("");
   const [loading, setLoading]       = useState(false);
@@ -3267,7 +3351,18 @@ function SubjectPage({ profile, onHome }) {
 
   // Return the redesigned student-friendly interface
   return (
-    <div style={{ position:"relative", height:"100vh", display:"flex", flexDirection:"column", background:"var(--bg-primary)" }}>
+    <div style={{ position:"relative", height:"100vh", display:"flex", flexDirection:"column", background:"var(--bg-primary)", paddingLeft: 220 }}>
+      {/* Left rail — full-screen lesson navigation, replaces the old chip tabs.
+          Grade + Subject pickers live here too (no separate HomePage form). */}
+      <LessonRail
+        profile={profile}
+        viewMode={viewMode}
+        setViewMode={(v) => { setViewMode(v); if (v === "videos" && videoList.length === 0) fetchVideosForTopic(activeTopic); }}
+        activeSubject={activeSubject}
+        setActiveSubject={setActiveSubject}
+        onUpdateProfile={onUpdateProfile}
+        onHome={onHome}
+      />
       {/* Header - Colorful and engaging */}
       <div style={{
         padding:"16px 20px",
@@ -3868,27 +3963,7 @@ function SubjectPage({ profile, onHome }) {
           </div>
 
           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
-            {/* View Toggle Buttons */}
-            <div style={{ display:"flex", gap:"4px", background:"var(--bg-tertiary)", padding:"4px", borderRadius:"8px", flexWrap:"wrap" }}>
-              {[
-                { id:"lesson",    label:"📚 Lesson" },
-                { id:"videos",    label:"🎬 Videos",    onClick: () => { if (videoList.length === 0) fetchVideosForTopic(activeTopic); } },
-                { id:"flashcards",label:"📇 Flashcards" },
-                { id:"practice",  label:"📝 Test" },
-                { id:"progress",  label:"📊 Progress" },
-              ].map(tab => (
-                <button key={tab.id}
-                  onClick={() => { setViewMode(tab.id); tab.onClick?.(); }}
-                  style={{
-                    padding:"8px 12px",
-                    background:viewMode === tab.id ? BLUE : "transparent",
-                    color:viewMode === tab.id ? "white" : "var(--text-secondary)",
-                    border:"none", borderRadius:"6px", cursor:"pointer",
-                    fontWeight:"600", fontSize:"12px", transition:"all 0.2s", whiteSpace:"nowrap",
-                  }}
-                >{tab.label}</button>
-              ))}
-            </div>
+            {/* View toggle chips removed — navigation now lives in the left rail (LessonRail). */}
 
             {/* Change Topic Button */}
             <button
@@ -4181,19 +4256,41 @@ function SubjectPage({ profile, onHome }) {
                 justifyContent:"center",
                 height:"100%",
                 textAlign:"center",
-                color:"var(--text-secondary)"
+                color:"var(--text-secondary)",
+                padding:"20px"
               }}>
-                <div style={{ fontSize:"48px", marginBottom:"12px" }}>🎓</div>
-                <div style={{ fontSize:"18px", fontWeight:"600", marginBottom:"8px" }}>Ready to Learn!</div>
-                <div style={{ fontSize:"14px" }}>Ask a question or use voice input 🎤</div>
+                {/* Hero illustration scoped to the active lesson topic + grade */}
+                <img
+                  src={lessonImageUrl(activeTopic, profile.grade, 1)}
+                  alt={`Illustration about ${activeTopic}`}
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  style={{ maxWidth: 360, width:"100%", height:"auto", borderRadius: 16, marginBottom: 18, boxShadow:"var(--shadow)" }}
+                />
+                <div style={{ fontSize:"22px", fontWeight:"700", marginBottom:"8px", color:"var(--text-primary)" }}>{activeTopic}</div>
+                <div style={{ fontSize:"14px", maxWidth: 420, lineHeight:1.5 }}>
+                  Ready to learn about {activeTopic}? Ask a question below or use voice input 🎤 — I'll explain it in fun, simple language for your grade.
+                </div>
               </div>
             )}
           </>
         )}
 
-        {/* Flashcard View */}
+        {/* Flashcard View — passes the assistant's lesson text as
+            lesson_context so cards are built from the lesson the student
+            is actually reading, not just the topic name. */}
         {viewMode === "flashcards" && (
-          <FlashcardView topic={activeTopic} grade={profile.grade} subject={activeSubject} apiUrl={API} />
+          <FlashcardView
+            topic={activeTopic}
+            grade={profile.grade}
+            subject={activeSubject}
+            apiUrl={API}
+            lessonContext={messages
+              .filter(m => m.role === "bot" || m.role === "assistant")
+              .map(m => m.content || "")
+              .join("\n\n")
+              .slice(0, 6000)}
+          />
         )}
 
         {/* Practice Test View */}
@@ -4597,23 +4694,36 @@ export default function App() {
 
   // Mint a fresh session_id every time the user enters the tool so each
   // login/visit groups its own history entries (session = per login).
+  // The student profile form was removed — entering the tool drops the user
+  // straight into SubjectPage with a default profile; grade + subject are
+  // now picked inside the tutor's left sidebar.
   const enterTool = () => {
     const sid = 'sess_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
     localStorage.setItem('ai_tutor_session_id', sid);
     setSeenLanding(true);
+    if (!profile) {
+      const initial = { name: 'Student', age: '', grade: 'Grade 6', subject: '', topic: '' };
+      localStorage.setItem('ai_tutor_profile', JSON.stringify(initial));
+      setProfile(initial);
+    }
   };
 
   if (!seenLanding) {
     return <Landing onEnter={enterTool} />;
   }
 
-  if (!profile) {
-    return <HomePage onStart={handleStart} />;
-  }
+  // SubjectPage handles everything from here — grade + subject pickers now
+  // live in its left sidebar, no separate HomePage form.
+  const activeProfile = profile || { name: 'Student', age: '', grade: 'Grade 6', subject: '', topic: '' };
 
   return (
     <SubjectPage
-      profile={profile}
+      profile={activeProfile}
+      onUpdateProfile={(patch) => {
+        const next = { ...activeProfile, ...patch };
+        localStorage.setItem('ai_tutor_profile', JSON.stringify(next));
+        setProfile(next);
+      }}
       onHome={() => {
         localStorage.removeItem("ai_tutor_profile");
         setProfile(null);

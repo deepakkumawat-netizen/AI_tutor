@@ -179,6 +179,7 @@ class FlashcardRequest(BaseModel):
     grade: str
     subject: str
     num_cards: int = 8
+    lesson_context: Optional[str] = None  # actual lesson text the student is reading
 
 class PracticeTestRequest(BaseModel):
     topic: str
@@ -289,6 +290,14 @@ async def generate_flashcards(request: FlashcardRequest):
     """Generate flashcards for a topic, calibrated to the student's grade via NLP."""
     from mcp_server import client as openai_client, OPENAI_MODEL, get_grade_language
     lang_style = get_grade_language(request.grade)
+    lesson_block = ""
+    if request.lesson_context and request.lesson_context.strip():
+        lesson_block = (
+            "\n\nLESSON CONTEXT — the actual lesson text the student is reading. "
+            "Derive flashcards from THIS content (key terms, facts, examples, "
+            "definitions actually mentioned). Do NOT invent terms outside the lesson:\n"
+            f"---\n{request.lesson_context.strip()[:5000]}\n---\n"
+        )
     try:
         resp = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
@@ -299,7 +308,9 @@ async def generate_flashcards(request: FlashcardRequest):
                     f"{lang_style}\n\n"
                     "Both the FRONT (key term/question) and BACK (definition/answer) must use vocabulary "
                     f"and sentence structure appropriate for {request.grade}. Never use words harder than "
-                    "the target term itself on the back side. Return ONLY valid JSON, no markdown."
+                    "the target term itself on the back side. "
+                    "When LESSON CONTEXT is provided, every flashcard must come from that lesson's content. "
+                    "Return ONLY valid JSON, no markdown."
                 )
             }, {
                 "role": "user",
@@ -308,6 +319,7 @@ async def generate_flashcards(request: FlashcardRequest):
                     f"(subject: {request.subject}, reading level: {request.grade}).\n"
                     "Each flashcard: front = key term/question (1-5 words), back = clear definition/answer "
                     "(1-2 short sentences using grade-appropriate words).\n"
+                    f"{lesson_block}"
                     'Return JSON: {"flashcards": [{"front": "...", "back": "..."}]}'
                 )
             }],
