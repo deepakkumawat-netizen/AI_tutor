@@ -2639,12 +2639,7 @@ const SUBJECT_EMOJIS = {
 // yet. Replaces two duplicate plain-text prompts with: hero illustration
 // (auto-rotating Pollinations image), quick-pick subject cards (one click
 // to lock the subject), and a rotating "Did you know?" fact strip.
-function WelcomeHub({ profile, onUpdateProfile, setActiveSubject }) {
-  const SUBJECTS_LIST = Object.keys(SUBJECTS).map(k => ({
-    id: k, name: SUBJECTS[k]?.name || k, emoji: SUBJECT_EMOJIS[SUBJECTS[k]?.name] || "📚",
-    blurb: SUBJECTS[k]?.blurb || ""
-  })).slice(0, 8);
-
+function WelcomeHub({ profile }) {
   const FACTS = [
     "🧠 Your brain forms new connections every time you learn — it physically grows!",
     "🌍 The Sun is 109× wider than Earth, but to a kid in Grade 6, it's just one star.",
@@ -2655,6 +2650,11 @@ function WelcomeHub({ profile, onUpdateProfile, setActiveSubject }) {
     "💧 Every drop of water you drink today has been around for 4.6 billion years.",
     "🎨 Leonardo da Vinci wrote his notes backwards — you need a mirror to read them.",
   ];
+  const STEPS = [
+    { n: "1", icon: "🎓", title: "Pick your Grade",    body: "Use the Grade dropdown in the left rail. We'll calibrate every explanation to your reading level." },
+    { n: "2", icon: "📚", title: "Choose a Subject",   body: "Subject list lives below Grade in the left rail. Pick ✨ Other Subject… to type or speak your own." },
+    { n: "3", icon: "✨", title: "Tap a topic chip",   body: "Topic suggestions appear on this page once Grade + Subject are set. One tap and your AI Tutor starts explaining." },
+  ];
   const [factIdx, setFactIdx] = useState(0);
   const [heroSeed, setHeroSeed] = useState(101);
   useEffect(() => {
@@ -2662,11 +2662,6 @@ function WelcomeHub({ profile, onUpdateProfile, setActiveSubject }) {
     const hero = setInterval(() => setHeroSeed(s => s + 1), 7000);
     return () => { clearInterval(fact); clearInterval(hero); };
   }, []);
-
-  const quickPick = (subjectName) => {
-    setActiveSubject(subjectName);
-    onUpdateProfile?.({ subject: subjectName, subjectLabel: "" });
-  };
 
   const needsGrade = !profile.grade;
   const heroPrompt = encodeURIComponent("Cute 3D Pixar style cartoon of a friendly AI robot tutor surrounded by floating books, equations, planets and lightbulbs, bright vibrant colors, clean white background, educational");
@@ -2687,8 +2682,8 @@ function WelcomeHub({ profile, onUpdateProfile, setActiveSubject }) {
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 18px" }}>
             {needsGrade
-              ? "Start by picking your grade in the left rail, then choose a subject — or jump straight in with one of these:"
-              : "Tap a subject below to start, or pick ✨ Other Subject in the left rail to type / speak your own."}
+              ? "👈 Pick your Grade and Subject from the left rail to get started."
+              : "👈 Pick a Subject from the left rail — or choose ✨ Other Subject and type / speak your own."}
           </p>
         </div>
         <div style={{ flex: "1 1 280px", minWidth: 240, display: "flex", justifyContent: "center" }}>
@@ -2703,32 +2698,24 @@ function WelcomeHub({ profile, onUpdateProfile, setActiveSubject }) {
         </div>
       </div>
 
-      {/* Quick-pick subject cards */}
+      {/* How it works — 3 steps */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>
-          Quick start — tap a subject
+          How it works
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
-          {SUBJECTS_LIST.map(s => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => quickPick(s.name)}
-              style={{
-                padding: "18px 12px", borderRadius: 14,
-                border: "2px solid var(--border-color)",
-                background: "var(--bg-secondary)",
-                color: "var(--text-primary)",
-                cursor: "pointer", textAlign: "center",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-                transition: "all 0.18s", fontFamily: "inherit",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.borderColor = BLUE; e.currentTarget.style.boxShadow = "0 8px 20px rgba(57,154,255,0.18)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.boxShadow = "none"; }}
-            >
-              <span style={{ fontSize: 32, lineHeight: 1 }}>{s.emoji}</span>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{s.name}</span>
-            </button>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          {STEPS.map((s, i) => (
+            <div key={i} style={{
+              padding: "16px 16px 18px", borderRadius: 14,
+              border: "1.5px solid var(--border-color)",
+              background: "var(--bg-secondary)",
+              display: "flex", flexDirection: "column", gap: 8, position: "relative", overflow: "hidden",
+            }}>
+              <div style={{ position: "absolute", top: -10, right: -8, fontSize: 86, fontWeight: 900, color: BLUE, opacity: 0.08, lineHeight: 1 }}>{s.n}</div>
+              <div style={{ fontSize: 28, lineHeight: 1 }}>{s.icon}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>{s.title}</div>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{s.body}</div>
+            </div>
           ))}
         </div>
       </div>
@@ -3847,14 +3834,10 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         </>
       )}
 
-      {/* Pre-flight empty state — quick-pick subject cards + rotating "Did
-          you know?" facts. Replaces two duplicate Welcome prompts. */}
+      {/* Pre-flight empty state — hero + "How it works" + rotating facts.
+          Subject selection happens in the LessonRail sidebar (not here). */}
       {!activeTopic && (!profile.grade || !activeSubject || (activeSubject === "custom" && !profile.subjectLabel)) && (
-        <WelcomeHub
-          profile={profile}
-          onUpdateProfile={onUpdateProfile}
-          setActiveSubject={setActiveSubject}
-        />
+        <WelcomeHub profile={profile} />
       )}
 
       {/* Professional Search Bar for Topics — only when subject + grade picked */}
