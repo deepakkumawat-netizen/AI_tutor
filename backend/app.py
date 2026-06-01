@@ -186,6 +186,7 @@ class PracticeTestRequest(BaseModel):
     grade: str
     subject: str
     num_questions: int = 5
+    lesson_context: Optional[str] = None  # actual lesson text the student just read
 
 class ExplainTopicRequest(BaseModel):
     topic: str
@@ -300,6 +301,7 @@ async def generate_flashcards(request: FlashcardRequest):
         )
     try:
         resp = chat_with_fallback(
+            prefer_anthropic=True,
             messages=[{
                 "role": "system",
                 "content": (
@@ -339,23 +341,44 @@ async def generate_flashcards(request: FlashcardRequest):
 
 @app.post("/api/practice-test")
 async def generate_practice_test(request: PracticeTestRequest):
-    """Generate a multi-question practice test"""
-    from mcp_server import chat_with_fallback
+    """Generate a grade-calibrated multi-question practice test from lesson content."""
+    from mcp_server import chat_with_fallback, get_grade_language
+    lang_style = get_grade_language(request.grade)
+    lesson_block = ""
+    if request.lesson_context and request.lesson_context.strip():
+        lesson_block = (
+            "\n\nLESSON CONTEXT — the actual lesson text the student just read. "
+            "Every question must test something explicitly covered in this lesson. "
+            "Never ask about facts that are not in the lesson, never invent absurd "
+            "distractors like 'a map drawn by a robot' — wrong options must be "
+            "plausible misunderstandings of the lesson content:\n"
+            f"---\n{request.lesson_context.strip()[:5000]}\n---\n"
+        )
     try:
         resp = chat_with_fallback(
+            prefer_anthropic=True,
             messages=[{
                 "role": "system",
-                "content": "You are an expert teacher creating multiple-choice tests. Return ONLY valid JSON, no markdown."
+                "content": (
+                    f"You are an expert teacher writing a multiple-choice practice test for a "
+                    f"{request.grade} student.\n\n{lang_style}\n\n"
+                    f"Every question stem, option, and explanation must use vocabulary and "
+                    f"sentence structure appropriate for {request.grade}. Distractors must be "
+                    "plausible misconceptions, never silly or off-topic. "
+                    "Return ONLY valid JSON, no markdown, no code fences."
+                )
             }, {
                 "role": "user",
                 "content": (
-                    f"Create {request.num_questions} multiple-choice questions for '{request.topic}' "
-                    f"({request.subject}, {request.grade}).\n"
-                    "Each question: 4 options labeled A/B/C/D, one correct answer, brief explanation.\n"
+                    f"Create {request.num_questions} multiple-choice questions about '{request.topic}' "
+                    f"(subject: {request.subject}, reading level: {request.grade}).\n"
+                    "Each question: 4 options labeled A/B/C/D, exactly one correct answer, "
+                    "a brief (1-2 sentence) explanation written for the grade level.\n"
+                    f"{lesson_block}"
                     'Return JSON: {"questions": [{"question":"...","options":["A) ...","B) ...","C) ...","D) ..."],"correct":"A","explanation":"..."}]}'
                 )
             }],
-            temperature=0.7,
+            temperature=0.5,
             max_tokens=1800,
         )
         import json

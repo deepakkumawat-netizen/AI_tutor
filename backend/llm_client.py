@@ -101,15 +101,28 @@ def _call_claude(messages, **kwargs):
     return _ClaudeResponse(text, CLAUDE_MODEL)
 
 
-def chat_with_fallback(messages, **kwargs):
+def chat_with_fallback(messages, prefer_anthropic: bool = False, **kwargs):
     """Run a chat completion, falling back across providers on rate-limit errors.
 
     Strips any model kwarg the caller passed — this helper chooses the model.
     Non-rate-limit errors propagate immediately so real bugs surface.
+
+    When prefer_anthropic=True, Claude is tried FIRST (use for student-facing
+    educational content where higher answer quality matters). If Claude fails
+    for any reason — rate-limit, network, or no key configured — the call
+    drops through to the Groq chain so the tool keeps working.
     """
     kwargs.pop("model", None)
 
     last_err = None
+
+    if prefer_anthropic and _anthropic is not None:
+        try:
+            return _call_claude(messages, **kwargs)
+        except Exception as e:
+            last_err = e
+            print(f"[llm] Claude (preferred) failed: {e} — falling through to Groq")
+
     if _groq is not None:
         for model in GROQ_FALLBACK_MODELS:
             try:
@@ -120,7 +133,7 @@ def chat_with_fallback(messages, **kwargs):
                 last_err = e
                 print(f"[llm] Groq {model} rate-limited, trying next…")
 
-    if _anthropic is not None:
+    if not prefer_anthropic and _anthropic is not None:
         try:
             print(f"[llm] All Groq models exhausted — falling back to Claude {CLAUDE_MODEL}")
             return _call_claude(messages, **kwargs)

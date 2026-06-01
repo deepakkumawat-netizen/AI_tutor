@@ -2284,7 +2284,7 @@ function FlashcardView({ topic, grade, subject, apiUrl, lessonContext }) {
   const progress = (done.size / cards.length) * 100;
 
   return (
-    <div style={{ padding:"24px", maxWidth:600, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, height:"100%", overflowY:"auto" }}>
+    <div style={{ padding:"24px 32px", width:"100%", display:"flex", flexDirection:"column", gap:20, height:"100%", overflowY:"auto", boxSizing:"border-box" }}>
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <div>
@@ -2353,7 +2353,7 @@ function FlashcardView({ topic, grade, subject, apiUrl, lessonContext }) {
 }
 
 // ─── PRACTICE TEST VIEW ───────────────────────────────────────────────────────
-function PracticeTestView({ topic, grade, subject, apiUrl, onScoreSave }) {
+function PracticeTestView({ topic, grade, subject, apiUrl, lessonContext, onScoreSave }) {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [qIdx, setQIdx] = useState(0);
@@ -2364,14 +2364,15 @@ function PracticeTestView({ topic, grade, subject, apiUrl, onScoreSave }) {
 
   useEffect(() => {
     if (topic) loadTest();
-  }, [topic]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic, lessonContext]);
 
   const loadTest = async () => {
     setLoading(true); setQuestions([]); setQIdx(0); setSelected(null); setAnswered(false); setScores([]); setDone(false);
     try {
       const res = await fetch(`${apiUrl}/api/practice-test`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, grade, subject, num_questions: 5 }),
+        body: JSON.stringify({ topic, grade, subject, num_questions: 5, lesson_context: lessonContext || "" }),
       });
       const data = await res.json();
       if (data.questions) setQuestions(data.questions);
@@ -2421,7 +2422,7 @@ function PracticeTestView({ topic, grade, subject, apiUrl, onScoreSave }) {
     const pct = Math.round((correct / questions.length) * 100);
     const emoji = pct >= 90 ? "🏆" : pct >= 70 ? "🎉" : pct >= 50 ? "👍" : "📚";
     return (
-      <div style={{ padding:"32px 24px", maxWidth:520, margin:"0 auto", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:20 }}>
+      <div style={{ padding:"32px 32px", width:"100%", textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:20, boxSizing:"border-box", overflowY:"auto" }}>
         <div style={{ fontSize:"64px" }}>{emoji}</div>
         <div style={{ fontSize:"24px", fontWeight:"800", color:"var(--text-primary)" }}>Test Complete!</div>
         <div style={{ fontSize:"52px", fontWeight:"800", color: pct>=70?BLUE:"#f59e0b" }}>{pct}%</div>
@@ -2453,7 +2454,7 @@ function PracticeTestView({ topic, grade, subject, apiUrl, onScoreSave }) {
   const progress = ((qIdx) / questions.length) * 100;
 
   return (
-    <div style={{ padding:"24px", maxWidth:600, margin:"0 auto", display:"flex", flexDirection:"column", gap:20, height:"100%", overflowY:"auto" }}>
+    <div style={{ padding:"24px 32px", width:"100%", display:"flex", flexDirection:"column", gap:20, height:"100%", overflowY:"auto", boxSizing:"border-box" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <div style={{ fontSize:"17px", fontWeight:"700", color:"var(--text-primary)" }}>📝 Practice Test — {topic}</div>
         <div style={{ fontSize:"13px", color:"var(--text-secondary)", fontWeight:"600" }}>Q{qIdx+1} of {questions.length}</div>
@@ -4485,10 +4486,17 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
           />
         )}
 
-        {/* Practice Test View */}
+        {/* Practice Test View — passes the assistant's lesson text as
+            lesson_context so test questions are derived from what the
+            student just read, not just the topic name. */}
         {viewMode === "practice" && (
           <PracticeTestView
             topic={activeTopic} grade={profile.grade} subject={activeSubject} apiUrl={API}
+            lessonContext={messages
+              .filter(m => m.role === "bot" || m.role === "assistant")
+              .map(m => m.content || "")
+              .join("\n\n")
+              .slice(0, 6000)}
             onScoreSave={(payload) => saveProgress("test", payload)}
           />
         )}
