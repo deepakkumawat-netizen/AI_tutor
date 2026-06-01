@@ -13,43 +13,12 @@ from openai import OpenAI
 
 load_dotenv()
 
+from llm_client import chat_with_fallback, GROQ_PRIMARY as OPENAI_MODEL
+
 api_key = os.getenv("GROQ_API_KEY", "").strip() or "missing-set-GROQ_API_KEY-in-env"
-OPENAI_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-# Fallback chain when the primary 70B model hits its daily token quota.
-# Each model has its own separate quota, so 8B-instant typically still has
-# headroom even when 70B is at 0 tokens remaining.
-GROQ_FALLBACK_MODELS = [
-    OPENAI_MODEL,
-    "llama-3.1-8b-instant",
-    "gemma2-9b-it",
-]
+# Streaming endpoints still use the OpenAI-shaped Groq client directly
+# (mid-stream provider switching isn't safe).
 client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-
-
-def chat_with_fallback(messages, **kwargs):
-    """Wrap client.chat.completions.create with model-fallback on 429.
-
-    Tries each model in GROQ_FALLBACK_MODELS in order. If a model returns a
-    rate-limit error (HTTP 429 / "rate_limit_exceeded" / "tokens per day"),
-    we move to the next. Any other error raises immediately. Returns the
-    Groq response object as if it came from the first call.
-    """
-    last_err = None
-    for model in GROQ_FALLBACK_MODELS:
-        try:
-            return client.chat.completions.create(model=model, **kwargs)
-        except Exception as e:
-            msg = str(e).lower()
-            is_rate_limit = ("rate_limit" in msg or "429" in msg
-                             or "tokens per day" in msg or "tpd" in msg
-                             or "quota" in msg or "rate limit" in msg)
-            if not is_rate_limit:
-                raise
-            last_err = e
-            print(f"[Groq] {model} rate-limited, trying next fallback…")
-    # All fallbacks exhausted — raise the last error so the caller can
-    # convert it into a user-friendly message.
-    raise last_err
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HARD-CODED LANGUAGE TOPICS
