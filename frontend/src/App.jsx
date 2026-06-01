@@ -2635,6 +2635,123 @@ const SUBJECT_EMOJIS = {
   webdev: "🌐"
 };
 
+// Engaging empty-state shown when the student hasn't picked grade + subject
+// yet. Replaces two duplicate plain-text prompts with: hero illustration
+// (auto-rotating Pollinations image), quick-pick subject cards (one click
+// to lock the subject), and a rotating "Did you know?" fact strip.
+function WelcomeHub({ profile, onUpdateProfile, setActiveSubject }) {
+  const SUBJECTS_LIST = Object.keys(SUBJECTS).map(k => ({
+    id: k, name: SUBJECTS[k]?.name || k, emoji: SUBJECT_EMOJIS[SUBJECTS[k]?.name] || "📚",
+    blurb: SUBJECTS[k]?.blurb || ""
+  })).slice(0, 8);
+
+  const FACTS = [
+    "🧠 Your brain forms new connections every time you learn — it physically grows!",
+    "🌍 The Sun is 109× wider than Earth, but to a kid in Grade 6, it's just one star.",
+    "📚 Reading 20 minutes a day exposes you to ~1.8 million words a year.",
+    "🐝 Honeybees can recognise human faces — they're tiny mathematicians.",
+    "🚀 ISRO put a satellite in Mars orbit on its FIRST try — for less than a Hollywood movie's budget.",
+    "🔢 The number 0 was invented in India and changed all of mathematics.",
+    "💧 Every drop of water you drink today has been around for 4.6 billion years.",
+    "🎨 Leonardo da Vinci wrote his notes backwards — you need a mirror to read them.",
+  ];
+  const [factIdx, setFactIdx] = useState(0);
+  const [heroSeed, setHeroSeed] = useState(101);
+  useEffect(() => {
+    const fact = setInterval(() => setFactIdx(i => (i + 1) % FACTS.length), 4500);
+    const hero = setInterval(() => setHeroSeed(s => s + 1), 7000);
+    return () => { clearInterval(fact); clearInterval(hero); };
+  }, []);
+
+  const quickPick = (subjectName) => {
+    setActiveSubject(subjectName);
+    onUpdateProfile?.({ subject: subjectName, subjectLabel: "" });
+  };
+
+  const needsGrade = !profile.grade;
+  const heroPrompt = encodeURIComponent("Cute 3D Pixar style cartoon of a friendly AI robot tutor surrounded by floating books, equations, planets and lightbulbs, bright vibrant colors, clean white background, educational");
+  const heroUrl = `https://image.pollinations.ai/prompt/${heroPrompt}?width=512&height=384&seed=${heroSeed}&nologo=true`;
+
+  return (
+    <div style={{ padding: "32px 24px 24px", maxWidth: 920, margin: "0 auto" }}>
+      {/* Hero row */}
+      <div style={{ display: "flex", gap: 28, alignItems: "center", flexWrap: "wrap", marginBottom: 28 }}>
+        <div style={{ flex: "1 1 320px", minWidth: 260 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 100, background: "var(--blue-xlight)", color: BLUE, fontWeight: 700, fontSize: 12, marginBottom: 14 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: BLUE, animation: "pulse 1.6s infinite" }} />
+            Ready when you are
+          </div>
+          <h1 style={{ fontSize: "clamp(26px, 3.4vw, 36px)", fontWeight: 800, lineHeight: 1.15, margin: "0 0 12px", color: "var(--text-primary)" }}>
+            Learn anything,<br />
+            <span style={{ color: BLUE }}>one curious step at a time.</span>
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 18px" }}>
+            {needsGrade
+              ? "Start by picking your grade in the left rail, then choose a subject — or jump straight in with one of these:"
+              : "Tap a subject below to start, or pick ✨ Other Subject in the left rail to type / speak your own."}
+          </p>
+        </div>
+        <div style={{ flex: "1 1 280px", minWidth: 240, display: "flex", justifyContent: "center" }}>
+          <img
+            src={heroUrl}
+            alt="AI Tutor"
+            key={heroSeed}
+            loading="lazy"
+            onError={e => { e.currentTarget.style.display = "none"; }}
+            style={{ width: "100%", maxWidth: 360, borderRadius: 18, boxShadow: "var(--shadow-lg)", transition: "opacity .4s" }}
+          />
+        </div>
+      </div>
+
+      {/* Quick-pick subject cards */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>
+          Quick start — tap a subject
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+          {SUBJECTS_LIST.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => quickPick(s.name)}
+              style={{
+                padding: "18px 12px", borderRadius: 14,
+                border: "2px solid var(--border-color)",
+                background: "var(--bg-secondary)",
+                color: "var(--text-primary)",
+                cursor: "pointer", textAlign: "center",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+                transition: "all 0.18s", fontFamily: "inherit",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.borderColor = BLUE; e.currentTarget.style.boxShadow = "0 8px 20px rgba(57,154,255,0.18)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.boxShadow = "none"; }}
+            >
+              <span style={{ fontSize: 32, lineHeight: 1 }}>{s.emoji}</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{s.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Rotating "Did you know?" strip */}
+      <div style={{
+        padding: "14px 18px",
+        background: "linear-gradient(135deg, rgba(57,154,255,0.08), rgba(167,139,250,0.08))",
+        border: "1.5px solid var(--blue-xlight)",
+        borderRadius: 14,
+        display: "flex", alignItems: "center", gap: 14, minHeight: 64,
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: BLUE, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>
+          Did you know?
+        </div>
+        <div key={factIdx} style={{ fontSize: 14, color: "var(--text-primary)", lineHeight: 1.5, animation: "fadeIn 0.4s ease" }}>
+          {FACTS[factIdx]}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Left-rail navigation that replaces the old horizontal chip tabs and the
 // removed Subject Switching Sidebar. Holds Grade + Subject pickers plus the
 // 5 section nav buttons. "Other Subject" reveals a typed/spoken custom
@@ -3730,21 +3847,14 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         </>
       )}
 
-      {/* Pre-flight empty state — shown when the student hasn't picked a
-          grade + subject yet. Replaces the previous infinite blinking
-          hero-carousel that fired even with empty inputs. */}
+      {/* Pre-flight empty state — quick-pick subject cards + rotating "Did
+          you know?" facts. Replaces two duplicate Welcome prompts. */}
       {!activeTopic && (!profile.grade || !activeSubject || (activeSubject === "custom" && !profile.subjectLabel)) && (
-        <div style={{ padding:"60px 20px", textAlign:"center" }}>
-          <div style={{ fontSize:"56px", marginBottom:"14px" }}>👈</div>
-          <div style={{ fontSize:"20px", fontWeight:"800", color:"var(--text-primary)", marginBottom:"8px" }}>
-            Welcome to AI Tutor
-          </div>
-          <div style={{ fontSize:"14px", color:"var(--text-secondary)", maxWidth:"380px", margin:"0 auto", lineHeight:1.6 }}>
-            Pick your <strong>Grade</strong> and <strong>Subject</strong> from the left rail to get
-            started. Want a subject we don't list? Choose <strong>✨ Other Subject…</strong> and type or
-            speak what you'd like to learn — topics will appear here automatically.
-          </div>
-        </div>
+        <WelcomeHub
+          profile={profile}
+          onUpdateProfile={onUpdateProfile}
+          setActiveSubject={setActiveSubject}
+        />
       )}
 
       {/* Professional Search Bar for Topics — only when subject + grade picked */}
@@ -4031,27 +4141,13 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         </div>
       )}
 
-      {/* Get Started prompt — shown only when no topic is selected */}
-      {!activeTopic && !topicsLoading && (
-        <div style={{ padding:"24px 20px 32px", textAlign:"center" }}>
-          <div style={{ fontSize:"40px", marginBottom:"12px" }}>👆</div>
-          <div style={{ fontSize:"18px", fontWeight:"700", color:"var(--text-primary)", marginBottom:"8px" }}>
-            Pick a topic to start learning!
-          </div>
-          <div style={{ fontSize:"13px", color:"var(--text-secondary)", maxWidth:"320px", margin:"0 auto 20px" }}>
-            Choose any topic above and your AI Tutor will explain it step-by-step, just for you.
-          </div>
-          <div style={{ display:"flex", justifyContent:"center", gap:"10px", flexWrap:"wrap" }}>
-            {["Ask anything 🤔", "Learn at your pace 🐢", "Get instant answers ⚡", "Practice with quizzes 📝"].map((tag, i) => (
-              <span key={i} style={{
-                background:"var(--bg-secondary)",
-                border:"1px solid var(--border-color)",
-                borderRadius:"20px",
-                padding:"5px 14px",
-                fontSize:"12px",
-                color:"var(--text-secondary)"
-              }}>{tag}</span>
-            ))}
+      {/* "Pick a topic to start learning" duplicate prompt removed —
+          WelcomeHub covers the pre-flight case, and once grade + subject
+          are picked the topic chips above are self-explanatory. */}
+      {!activeTopic && !topicsLoading && profile.grade && activeSubject && (activeSubject !== "custom" || profile.subjectLabel) && topicList.length > 0 && (
+        <div style={{ padding:"16px 20px 24px", textAlign:"center" }}>
+          <div style={{ fontSize:"13px", color:"var(--text-secondary)" }}>
+            👆 Click any topic above to start your lesson.
           </div>
         </div>
       )}
