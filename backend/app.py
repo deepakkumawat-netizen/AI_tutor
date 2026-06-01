@@ -288,7 +288,7 @@ async def api_practice_question(request: PracticeQuestionRequest):
 @app.post("/api/flashcards")
 async def generate_flashcards(request: FlashcardRequest):
     """Generate flashcards for a topic, calibrated to the student's grade via NLP."""
-    from mcp_server import client as openai_client, OPENAI_MODEL, get_grade_language
+    from mcp_server import chat_with_fallback, get_grade_language
     lang_style = get_grade_language(request.grade)
     lesson_block = ""
     if request.lesson_context and request.lesson_context.strip():
@@ -299,8 +299,7 @@ async def generate_flashcards(request: FlashcardRequest):
             f"---\n{request.lesson_context.strip()[:5000]}\n---\n"
         )
     try:
-        resp = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
+        resp = chat_with_fallback(
             messages=[{
                 "role": "system",
                 "content": (
@@ -341,10 +340,9 @@ async def generate_flashcards(request: FlashcardRequest):
 @app.post("/api/practice-test")
 async def generate_practice_test(request: PracticeTestRequest):
     """Generate a multi-question practice test"""
-    from mcp_server import client as openai_client, OPENAI_MODEL
+    from mcp_server import chat_with_fallback
     try:
-        resp = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
+        resp = chat_with_fallback(
             messages=[{
                 "role": "system",
                 "content": "You are an expert teacher creating multiple-choice tests. Return ONLY valid JSON, no markdown."
