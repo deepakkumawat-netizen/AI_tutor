@@ -3042,10 +3042,21 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
     return () => clearTimeout(timer);
   }, [searchQuery, topicList, activeSubject, profile.subjectLabel, profile.grade]);
 
-  // NEW: Load topics when active subject changes
+  // Load topics when active subject / grade changes. Guarded so we don't
+  // fire with empty inputs (infinite-blink bug — topicListFallback was a
+  // fresh array on every render which kept retriggering the effect).
   useEffect(() => {
+    const subjectToQuery = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
+    // Short-circuit: don't even start loading until the student has
+    // picked both grade and subject. Otherwise the page would blink
+    // forever showing a loading skeleton with no input to base it on.
+    if (!subjectToQuery || !profile.grade) {
+      setTopicList([]);
+      setTopicsLoading(false);
+      return;
+    }
+    let cancelled = false;
     const loadTopicsForSubject = async () => {
-      const subjectToQuery = activeSubject === "custom" ? profile.subjectLabel : activeSubject;
       setTopicList([]);
       setTopicsLoading(true);
       try {
@@ -3054,8 +3065,10 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ subject: subjectToQuery, grade: profile.grade })
         });
+        if (cancelled) return;
         if (!res.ok) { setTopicsLoading(false); return; }
         const data = await res.json();
+        if (cancelled) return;
         const topics = data.topics || [];
         setTopicList(topics);
         fetch(`${API}/api/semantic/embed-topics`, {
@@ -3066,11 +3079,15 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
       } catch (e) {
         // keep empty, skeleton will show retry option
       } finally {
-        setTopicsLoading(false);
+        if (!cancelled) setTopicsLoading(false);
       }
     };
     loadTopicsForSubject();
-  }, [activeSubject, profile.grade, topicListFallback, profile.subjectLabel]);
+    return () => { cancelled = true; };
+    // NOTE: topicListFallback intentionally NOT in deps — it's a fresh
+    // array reference on every render and would cause an infinite re-fetch loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubject, profile.grade, profile.subjectLabel]);
 
   // NEW: Reset search when topic is selected
   useEffect(() => {
@@ -3478,9 +3495,19 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
           </button>
           <div>
             <div style={{ fontSize:"18px", fontWeight:"900", marginBottom:"4px" }}>
-              {SUBJECT_EMOJIS[activeSubject] || "📚"} {activeSubject === "custom" ? profile.subjectLabel : (SUBJECTS[activeSubject]?.label || "Unknown Subject")}
+              {(() => {
+                if (activeSubject === "custom" && profile.subjectLabel) {
+                  return `${SUBJECT_EMOJIS[activeSubject] || "✨"} ${profile.subjectLabel}`;
+                }
+                if (activeSubject && SUBJECTS[activeSubject]?.label) {
+                  return `${SUBJECT_EMOJIS[activeSubject] || "📚"} ${SUBJECTS[activeSubject].label}`;
+                }
+                return "🤖 AI Tutor";
+              })()}
             </div>
-            <div style={{ fontSize:"12px", opacity:0.9 }}>{profile.grade}</div>
+            <div style={{ fontSize:"12px", opacity:0.9 }}>
+              {profile.grade || "Pick a grade + subject in the left rail to start"}
+            </div>
           </div>
         </div>
 
@@ -3703,8 +3730,25 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         </>
       )}
 
-      {/* Professional Search Bar for Topics */}
-      {!activeTopic && (
+      {/* Pre-flight empty state — shown when the student hasn't picked a
+          grade + subject yet. Replaces the previous infinite blinking
+          hero-carousel that fired even with empty inputs. */}
+      {!activeTopic && (!profile.grade || !activeSubject || (activeSubject === "custom" && !profile.subjectLabel)) && (
+        <div style={{ padding:"60px 20px", textAlign:"center" }}>
+          <div style={{ fontSize:"56px", marginBottom:"14px" }}>👈</div>
+          <div style={{ fontSize:"20px", fontWeight:"800", color:"var(--text-primary)", marginBottom:"8px" }}>
+            Welcome to AI Tutor
+          </div>
+          <div style={{ fontSize:"14px", color:"var(--text-secondary)", maxWidth:"380px", margin:"0 auto", lineHeight:1.6 }}>
+            Pick your <strong>Grade</strong> and <strong>Subject</strong> from the left rail to get
+            started. Want a subject we don't list? Choose <strong>✨ Other Subject…</strong> and type or
+            speak what you'd like to learn — topics will appear here automatically.
+          </div>
+        </div>
+      )}
+
+      {/* Professional Search Bar for Topics — only when subject + grade picked */}
+      {!activeTopic && profile.grade && activeSubject && (activeSubject !== "custom" || profile.subjectLabel) && (
         <div style={{
           padding:"20px",
           borderBottom:"2px solid rgba(57,154,255,0.2)"
