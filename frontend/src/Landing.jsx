@@ -89,10 +89,20 @@ function AuthModal({ mode, onClose, onSwitch, onEnter }) {
 export default function Landing({ onEnter }) {
   const { isDark, toggleTheme } = useTheme();
   const [auth, setAuth] = useState(null);
-  // Rotate the hero image's Pollinations seed every 5s for fresh variations.
-  const [heroSeed, setHeroSeed] = useState(11);
+  // Hero image rotation — preload the next Pollinations seed in the
+  // background and only swap the visible src once it's fully loaded, so
+  // the user never sees a blank rectangle between rotations.
+  const buildHeroUrl = (s) => `https://image.pollinations.ai/prompt/Cute%203D%20Pixar%20cartoon%20of%20a%20friendly%20AI%20robot%20tutor%20holding%20a%20glowing%20book%20with%20sparkles%2C%20teaching%20kids%2C%20bright%20vibrant%20colors%2C%20clean%20white%20background%2C%20educational%20illustration?width=768&height=768&seed=${s}&nologo=true`;
+  const [heroUrl, setHeroUrl] = useState(buildHeroUrl(11));
   useEffect(() => {
-    const t = setInterval(() => setHeroSeed(s => s + 1), 5000);
+    let seed = 11;
+    const t = setInterval(() => {
+      seed += 1;
+      const nextUrl = buildHeroUrl(seed);
+      const img = new Image();
+      img.onload = () => setHeroUrl(nextUrl);
+      img.src = nextUrl;
+    }, 5000);
     return () => clearInterval(t);
   }, []);
 
@@ -126,12 +136,10 @@ export default function Landing({ onEnter }) {
         </div>
         <div style={{ flex: "1 1 320px", minWidth: 260, display: "flex", justifyContent: "center" }}>
           <img
-            src={`https://image.pollinations.ai/prompt/Cute%203D%20Pixar%20cartoon%20of%20a%20friendly%20AI%20robot%20tutor%20holding%20a%20glowing%20book%20with%20sparkles%2C%20teaching%20kids%2C%20bright%20vibrant%20colors%2C%20clean%20white%20background%2C%20educational%20illustration?width=768&height=768&seed=${heroSeed}&nologo=true`}
+            src={heroUrl}
             alt="AI Tutor illustration"
-            loading="lazy"
-            key={heroSeed}
             onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            style={{ width: "100%", maxWidth: 420, height: "auto", borderRadius: 20, boxShadow: "var(--shadow-lg)", transition: "opacity .4s" }}
+            style={{ width: "100%", maxWidth: 420, height: "auto", aspectRatio: "1 / 1", borderRadius: 20, boxShadow: "var(--shadow-lg)", transition: "opacity .4s", background: "linear-gradient(135deg, var(--blue-xlight, #e3f0ff), #f7fbff)" }}
           />
         </div>
       </section>

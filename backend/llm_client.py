@@ -101,16 +101,21 @@ def _call_claude(messages, **kwargs):
     return _ClaudeResponse(text, CLAUDE_MODEL)
 
 
-def chat_with_fallback(messages, prefer_anthropic: bool = False, **kwargs):
+def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
     """Run a chat completion, falling back across providers on rate-limit errors.
 
     Strips any model kwarg the caller passed — this helper chooses the model.
     Non-rate-limit errors propagate immediately so real bugs surface.
 
-    When prefer_anthropic=True, Claude is tried FIRST (use for student-facing
-    educational content where higher answer quality matters). If Claude fails
-    for any reason — rate-limit, network, or no key configured — the call
-    drops through to the Groq chain so the tool keeps working.
+    Default is prefer_anthropic=True: Claude Haiku 4.5 is tried FIRST since
+    the Groq free tier's daily quotas (100K tokens/model) are tight enough
+    that students see 429s in normal use. Claude is paid and uncapped at our
+    usage level, so it's both faster (no quota stalls) and steadier. If
+    Claude is unreachable or no key is set, the call drops through to the
+    Groq chain so the tool keeps working as a free-tier fallback.
+
+    Pass prefer_anthropic=False explicitly for any low-stakes background
+    call where the cost difference matters more than latency.
     """
     kwargs.pop("model", None)
 
