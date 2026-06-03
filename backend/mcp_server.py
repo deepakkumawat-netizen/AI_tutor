@@ -230,16 +230,56 @@ def _cbse_block(topic: str, grade: str, subject: str, chapter: str = None) -> st
             f"The student is studying the subtopic '{topic_clean}' WITHIN this chapter — "
             "stay tight on this subtopic and use the chapter context only to anchor it.\n"
         )
+
+    # If the chapter title is in a non-English script (Devanagari etc.) it
+    # IS the canonical NCERT name — keep it verbatim and tell the model not
+    # to translate it.
+    title_has_native_script = any(ord(c) > 127 for c in chapter_title_clean)
+    native_line = ""
+    if title_has_native_script:
+        native_line = (
+            f"The chapter is called '{chapter_title_clean}' in NCERT — this is the "
+            "actual name in its original script. Keep this title verbatim in the lesson; "
+            "do not translate it to English and do not invent an English title.\n"
+        )
+
     return (
-        "\n=== CBSE CURRICULUM GROUNDING ===\n"
+        "\n=== CBSE / NCERT CURRICULUM GROUNDING ===\n"
         f"This is {match.get('ch', 'a chapter')} of the {subject} NCERT textbook for {grade}.\n"
         f"Official chapter title: {match.get('title', '')}\n"
         f"Official chapter concepts: {match.get('concepts', '')}\n"
+        f"{native_line}"
         f"{subtopic_line}"
-        "Teach this strictly the way the NCERT textbook covers it — use the same "
-        "definitions, terminology, sequence and examples that appear in the official "
-        "NCERT chapter. Do not introduce material from other chapters or other grades.\n"
+        "You MUST teach the actual content of this NCERT chapter — the same story, "
+        "poem, characters, definitions, terminology, examples and sequence that appear "
+        "in the official NCERT textbook for this grade. For literature chapters (Hindi, "
+        "English, Sanskrit, regional languages) the chapter is a SPECIFIC story or poem "
+        "— teach THAT story/poem (its plot, characters, moral, key lines) instead of "
+        "inventing an abstract topic. Do NOT introduce material from other chapters or "
+        "other grades. Do NOT replace the NCERT chapter name with a generic descriptive "
+        "title.\n"
         "=== END CBSE GROUNDING ===\n"
+    )
+
+
+def _lang_block(subject: str) -> str:
+    """Return a strong language directive when the subject is taught IN a
+    specific language (Hindi, Sanskrit, Urdu, regional). Empty otherwise.
+    This runs independently of CBSE matching so the directive applies even
+    for custom subjects or chapters missing from the TOC."""
+    if not _CBSE_AVAILABLE:
+        return ""
+    lang = _cbse_kb.language_for_subject(subject)
+    if not lang:
+        return ""
+    return (
+        f"\n=== LANGUAGE DIRECTIVE ===\n"
+        f"This subject is {subject}. Write the ENTIRE lesson — every section, every "
+        f"heading, every bullet, every example — in {lang}. Do not write any part of "
+        f"the lesson in English (English is acceptable only inside parentheses to gloss "
+        f"a difficult word for the student). Use vocabulary appropriate for the grade "
+        f"level. The student is studying {subject}, so the response must be in {lang}.\n"
+        f"=== END LANGUAGE DIRECTIVE ===\n"
     )
 
 
@@ -249,12 +289,13 @@ def explain_topic(topic: str, grade: str, subject: str, history: list = None, ch
         grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
         lang_style = get_grade_language(grade)
         cbse_block = _cbse_block(topic, grade, subject, chapter=chapter)
+        lang_block = _lang_block(subject)
 
         messages = [
             {"role": "system", "content": f"""You are an expert tutor explaining '{topic}' from {subject} to {grade} students.
 
 {lang_style}
-{cbse_block}
+{cbse_block}{lang_block}
 Format EXACTLY as:
 DEFINITION:
 [Clear definition]
@@ -372,12 +413,13 @@ def explain_topic_stream(topic: str, grade: str, subject: str, history: list = N
     grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
     lang_style = get_grade_language(grade)
     cbse_block = _cbse_block(topic, grade, subject, chapter=chapter)
+    lang_block = _lang_block(subject)
 
     messages = [
         {"role": "system", "content": f"""You are an expert tutor explaining '{topic}' from {subject} to {grade} students.
 
 {lang_style}
-{cbse_block}
+{cbse_block}{lang_block}
 Format EXACTLY as:
 DEFINITION:
 [Clear definition]

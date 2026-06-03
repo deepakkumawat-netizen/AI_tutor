@@ -299,12 +299,20 @@ async def api_get_topics(request: GetTopicsRequest):
             ch = cbse_kb.find_chapter(request.grade, request.subject, request.chapter)
             if ch:
                 subtopics = cbse_kb.concepts_to_topics(ch.get("concepts", ""))
+                chapter_title = ch.get("title", "").strip()
+                # Literature chapters (Hindi/English/Sanskrit) often have a
+                # single descriptive `concepts` line that doesn't cleanly
+                # split — in that case surface the chapter title itself as
+                # the one-and-only chip so the student can click it to load
+                # the actual NCERT story/poem lesson.
+                if not subtopics and chapter_title:
+                    subtopics = [chapter_title]
                 if subtopics:
                     return {
                         "subject": request.subject,
                         "grade": request.grade,
                         "chapter": ch.get("ch", ""),
-                        "chapter_title": ch.get("title", ""),
+                        "chapter_title": chapter_title,
                         "topics": subtopics,
                         "count": len(subtopics),
                         "type": "cbse_subtopics",

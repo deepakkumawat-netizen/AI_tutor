@@ -67,14 +67,30 @@ def find_chapter(grade_level, subject, chapter_ref) -> dict:
 
 def concepts_to_topics(concepts) -> list:
     """Turn a chapter's `concepts` string into a clean list of student-facing
-    subtopic chip labels. Splits on commas at the outer level (so phrases
-    like 'gametogenesis (spermatogenesis & oogenesis)' stay intact), strips
-    trailing punctuation, removes a leading 'and ' from the final item, and
-    drops empties."""
+    subtopic chip labels.
+
+    - Splits on commas AND semicolons at the outer level (so phrases like
+      'gametogenesis (spermatogenesis & oogenesis)' stay intact).
+    - Strips a leading 'Theme:' / 'Topic:' lead-in like
+      'Teamwork Logistics:' that some literature entries carry.
+    - Strips trailing punctuation, removes a leading 'and '.
+    - Drops items longer than 90 characters — those are clearly whole
+      sentences (often the case for Hindi/English-literature entries), not
+      real subtopics, and returning them as chips produced absurd chip
+      titles like 'Teamwork Logistics: Exploring insect biology (ants);
+      building compound letters (Sanyukt Akshar) alongside diligence
+      themes'.
+    """
     if not concepts:
         return []
-    # split on commas that are NOT inside parentheses
-    parts = re.split(r",\s*(?![^()]*\))", str(concepts))
+    text = str(concepts).strip()
+    # drop a leading 'Theme: ' / 'Topic: ' lead-in (single colon, before any
+    # paren) — keeps the actual subtopic listing.
+    m = re.match(r"^[A-Za-z][A-Za-z &/'-]{2,40}:\s*(.+)$", text)
+    if m:
+        text = m.group(1)
+    # split on commas or semicolons that are NOT inside parentheses
+    parts = re.split(r"[,;]\s*(?![^()]*\))", text)
     out = []
     for p in parts:
         s = p.strip().rstrip(".").strip()
@@ -82,9 +98,49 @@ def concepts_to_topics(concepts) -> list:
             s = s[4:].strip()
         if not s:
             continue
+        # drop chip-as-whole-sentence — those are not real subtopics
+        if len(s) > 90:
+            continue
         # title-case the first letter so chips read like proper labels
         out.append(s[0].upper() + s[1:] if len(s) > 1 else s.upper())
     return out
+
+
+# Subjects taught IN a target language (the lesson itself must be written
+# in that language). Maps subject name → script/language directive used in
+# the LLM system prompt.
+LANGUAGE_SUBJECTS = {
+    "Hindi": "Hindi (Devanagari script)",
+    "Hindi Course A": "Hindi (Devanagari script)",
+    "Hindi Course B": "Hindi (Devanagari script)",
+    "Sanskrit": "Sanskrit (Devanagari script)",
+    "Urdu": "Urdu (Nastaliq script)",
+    "Punjabi": "Punjabi (Gurmukhi script)",
+    "Tamil": "Tamil",
+    "Telugu": "Telugu",
+    "Kannada": "Kannada",
+    "Malayalam": "Malayalam",
+    "Marathi": "Marathi",
+    "Bengali": "Bengali",
+    "Gujarati": "Gujarati",
+}
+
+
+def language_for_subject(subject) -> str:
+    """Return the language a lesson should be written in for this subject,
+    or '' for English-medium subjects (Maths, Science, EVS, English, etc).
+    Match is case-insensitive and tolerant of trailing extras."""
+    if not subject:
+        return ""
+    s = str(subject).strip()
+    for key, lang in LANGUAGE_SUBJECTS.items():
+        if s.lower() == key.lower():
+            return lang
+    # tolerant prefix match for things like 'Hindi A', 'Sanskrit Elective'
+    for key, lang in LANGUAGE_SUBJECTS.items():
+        if s.lower().startswith(key.lower() + " "):
+            return lang
+    return ""
 
 
 def retrieve_context(query, grade_level, subject="", top_k=3) -> str:
