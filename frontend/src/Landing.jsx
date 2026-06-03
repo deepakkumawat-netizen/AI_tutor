@@ -159,7 +159,7 @@ export default function Landing({ onEnter }) {
 
       <footer style={{ borderTop: "1.5px solid var(--border-color)", padding: "24px 6vw", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} /> Powered by Codevidhya</div>
-        <div style={{ marginTop: 6 }}>© 2025 AI Tutor</div>
+        <div style={{ marginTop: 6 }}>© 2026 AI Tutor</div>
       </footer>
 
       {auth && <AuthModal mode={auth} onClose={() => setAuth(null)} onSwitch={() => setAuth((m) => (m === "signup" ? "login" : "signup"))} onEnter={onEnter} />}
