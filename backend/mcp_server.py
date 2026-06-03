@@ -173,43 +173,82 @@ except Exception:
     _CBSE_AVAILABLE = False
 
 
-def _cbse_block(topic: str, grade: str, subject: str) -> str:
+def _cbse_block(topic: str, grade: str, subject: str, chapter: str = None) -> str:
     """Return a CBSE-grounding prompt fragment for a topic/grade/subject,
     or '' if the topic isn't in the CBSE TOC (custom subject, language, etc).
-    Always strips down to the single best-matching chapter so the prompt
-    stays tight."""
+
+    Resolution order for the parent chapter:
+      1. explicit `chapter` arg (passed from frontend when the student picked
+         it in the sidebar — most reliable)
+      2. exact match of `topic` against a chapter title (lesson loaded by
+         clicking a chapter chip directly)
+      3. token-overlap fallback — find the chapter whose `concepts` field
+         best mentions the topic (lets a subtopic chip like 'Spermatogenesis'
+         still resolve to Chapter 2 Human Reproduction)
+    """
     if not _CBSE_AVAILABLE:
         return ""
     chapters = _cbse_kb.get_chapters(grade, subject)
     if not chapters:
         return ""
-    # Exact-title match preferred — that's the case when the frontend
-    # passed the CBSE chapter title verbatim as `topic`.
+
     match = None
+
+    # 1. explicit chapter from the frontend
+    if chapter:
+        match = _cbse_kb.find_chapter(grade, subject, chapter) or None
+
     topic_low = (topic or "").lower().strip()
-    for ch in chapters:
-        if (ch.get("title") or "").lower().strip() == topic_low:
-            match = ch
-            break
+
+    # 2. topic == a chapter title
+    if not match and topic_low:
+        for ch in chapters:
+            if (ch.get("title") or "").lower().strip() == topic_low:
+                match = ch
+                break
+
+    # 3. token-overlap fallback — find the chapter whose concepts cover this subtopic
+    if not match and topic_low:
+        best_score = 0
+        topic_tokens = _cbse_kb._tokenize(topic_low)
+        if topic_tokens:
+            for ch in chapters:
+                blob = (ch.get("title", "") + " " + ch.get("concepts", ""))
+                score = len(topic_tokens & _cbse_kb._tokenize(blob))
+                if score > best_score:
+                    best_score = score
+                    match = ch
+
     if not match:
         return ""
+
+    subtopic_line = ""
+    topic_clean = (topic or "").strip()
+    chapter_title_clean = (match.get("title") or "").strip()
+    if topic_clean and topic_clean.lower() != chapter_title_clean.lower():
+        subtopic_line = (
+            f"The student is studying the subtopic '{topic_clean}' WITHIN this chapter — "
+            "stay tight on this subtopic and use the chapter context only to anchor it.\n"
+        )
     return (
         "\n=== CBSE CURRICULUM GROUNDING ===\n"
         f"This is {match.get('ch', 'a chapter')} of the {subject} NCERT textbook for {grade}.\n"
         f"Official chapter title: {match.get('title', '')}\n"
         f"Official chapter concepts: {match.get('concepts', '')}\n"
-        "Stay strictly within the scope of these CBSE concepts — do not introduce "
-        "material from other chapters or grades.\n"
+        f"{subtopic_line}"
+        "Teach this strictly the way the NCERT textbook covers it — use the same "
+        "definitions, terminology, sequence and examples that appear in the official "
+        "NCERT chapter. Do not introduce material from other chapters or other grades.\n"
         "=== END CBSE GROUNDING ===\n"
     )
 
 
-def explain_topic(topic: str, grade: str, subject: str, history: list = None) -> dict:
+def explain_topic(topic: str, grade: str, subject: str, history: list = None, chapter: str = None) -> dict:
     """Explain a topic in detail with grade-appropriate formatting"""
     try:
         grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
         lang_style = get_grade_language(grade)
-        cbse_block = _cbse_block(topic, grade, subject)
+        cbse_block = _cbse_block(topic, grade, subject, chapter=chapter)
 
         messages = [
             {"role": "system", "content": f"""You are an expert tutor explaining '{topic}' from {subject} to {grade} students.
@@ -328,11 +367,11 @@ SUMMARY:
             "error": error_msg
         }
 
-def explain_topic_stream(topic: str, grade: str, subject: str, history: list = None):
+def explain_topic_stream(topic: str, grade: str, subject: str, history: list = None, chapter: str = None):
     """Stream explanation token by token using OpenAI streaming"""
     grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
     lang_style = get_grade_language(grade)
-    cbse_block = _cbse_block(topic, grade, subject)
+    cbse_block = _cbse_block(topic, grade, subject, chapter=chapter)
 
     messages = [
         {"role": "system", "content": f"""You are an expert tutor explaining '{topic}' from {subject} to {grade} students.

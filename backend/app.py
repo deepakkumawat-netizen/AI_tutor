@@ -173,6 +173,7 @@ PORT = int(os.getenv("PORT", 5000))
 class GetTopicsRequest(BaseModel):
     subject: str
     grade: str
+    chapter: Optional[str] = None  # optional CBSE chapter — when set, returns subtopics from that chapter's NCERT concepts, not the chapter list
 
 class FlashcardRequest(BaseModel):
     topic: str
@@ -193,6 +194,7 @@ class ExplainTopicRequest(BaseModel):
     grade: str
     subject: str
     history: list = []
+    chapter: Optional[str] = None  # parent CBSE chapter (e.g. 'Chapter 2. Human Reproduction') so the lesson stays scoped to that chapter even when topic is a subtopic
 
 class PracticeQuestionRequest(BaseModel):
     subject: str
@@ -282,13 +284,32 @@ async def api_curriculum(grade: str = "", subject: str = ""):
 async def api_get_topics(request: GetTopicsRequest):
     """Get topics for a subject (standard or custom).
 
-    When the requested (grade, subject) pair exists in the CBSE TOC,
-    return the official CBSE chapter titles directly so students get the
-    NCERT syllabus topics, not LLM-invented ones. Falls back to the
-    existing LLM-generated topic list for non-CBSE subjects (languages,
-    custom subjects, etc.).
+    Three modes:
+      1. (grade, subject, chapter) all set AND chapter found in CBSE TOC:
+         return the chapter's NCERT subtopics derived from its `concepts`
+         field — these are the chips a student sees AFTER picking a chapter.
+      2. (grade, subject) set AND the pair exists in CBSE TOC: return the
+         official chapter titles (used before a chapter is picked).
+      3. otherwise: fall back to the LLM-generated topic list (custom
+         subjects, languages, non-CBSE inputs).
     """
     if CBSE_AVAILABLE:
+        # Mode 1 — subtopics within a specific chapter
+        if request.chapter:
+            ch = cbse_kb.find_chapter(request.grade, request.subject, request.chapter)
+            if ch:
+                subtopics = cbse_kb.concepts_to_topics(ch.get("concepts", ""))
+                if subtopics:
+                    return {
+                        "subject": request.subject,
+                        "grade": request.grade,
+                        "chapter": ch.get("ch", ""),
+                        "chapter_title": ch.get("title", ""),
+                        "topics": subtopics,
+                        "count": len(subtopics),
+                        "type": "cbse_subtopics",
+                    }
+        # Mode 2 — full chapter list for the grade+subject
         chapters = cbse_kb.get_chapters(request.grade, request.subject)
         if chapters:
             topics = [
@@ -310,7 +331,7 @@ async def api_get_topics(request: GetTopicsRequest):
 @app.post("/api/mcp/explain-topic")
 async def api_explain_topic(request: ExplainTopicRequest):
     """Explain a topic"""
-    result = explain_topic(request.topic, request.grade, request.subject, history=request.history or [])
+    result = explain_topic(request.topic, request.grade, request.subject, history=request.history or [], chapter=request.chapter)
 
     # Log what we're returning
     import json
@@ -335,7 +356,7 @@ async def api_explain_topic_stream(request: ExplainTopicRequest):
         try:
             for token in explain_topic_stream(
                 request.topic, request.grade, request.subject,
-                history=request.history or []
+                history=request.history or [], chapter=request.chapter
             ):
                 yield f"data: {json.dumps({'text': token})}\n\n"
         except Exception as e:

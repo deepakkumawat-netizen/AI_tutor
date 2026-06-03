@@ -2849,7 +2849,7 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
         <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>Grade</label>
         <select
           value={profile.grade || ""}
-          onChange={e => onUpdateProfile?.({ grade: e.target.value })}
+          onChange={e => onUpdateProfile?.({ grade: e.target.value, chapter: "", topic: "" })}
           style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
         >
           <option value="">Select grade…</option>
@@ -2867,10 +2867,10 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
             const v = e.target.value;
             if (v === "custom") {
               setActiveSubject("custom");
-              onUpdateProfile?.({ subject: "custom", subjectLabel: profile.subjectLabel || "" });
+              onUpdateProfile?.({ subject: "custom", subjectLabel: profile.subjectLabel || "", chapter: "", topic: "" });
             } else {
               setActiveSubject(v);
-              onUpdateProfile?.({ subject: v, subjectLabel: "" });
+              onUpdateProfile?.({ subject: v, subjectLabel: "", chapter: "", topic: "" });
             }
           }}
           disabled={!profile.grade}
@@ -2927,11 +2927,15 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
           Chapter {cbseChapters.length > 0 && <span style={{ color: BLUE, fontWeight:600 }}>· CBSE</span>}
         </label>
         <select
-          value={profile.topic || ""}
+          value={profile.chapter || ""}
           onChange={e => {
             const v = e.target.value;
             if (!v) return;
-            onUpdateProfile?.({ topic: v });
+            // Picking a chapter sets profile.chapter (NOT profile.topic).
+            // The topic-chips fetch will pick up the new chapter and refresh
+            // its chip list to the chapter's NCERT subtopics; the student
+            // then clicks one of those chips to actually start a lesson.
+            onUpdateProfile?.({ chapter: v, topic: "" });
             setViewMode?.("lesson");
           }}
           disabled={!activeSubject || isCustom || cbseChapters.length === 0}
@@ -3245,10 +3249,16 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
       setTopicList([]);
       setTopicsLoading(true);
       try {
+        // When a CBSE chapter is picked, /api/mcp/get-topics returns the
+        // subtopics from that chapter's NCERT `concepts` field instead of
+        // the chapter-title list — so chips refresh from "list of chapters"
+        // to "list of subtopics within the chapter" automatically.
+        const body = { subject: subjectToQuery, grade: profile.grade };
+        if (profile.chapter) body.chapter = profile.chapter;
         const res = await fetch(`${API}/api/mcp/get-topics`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subject: subjectToQuery, grade: profile.grade })
+          body: JSON.stringify(body)
         });
         if (cancelled) return;
         if (!res.ok) { setTopicsLoading(false); return; }
@@ -3272,7 +3282,7 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
     // NOTE: topicListFallback intentionally NOT in deps — it's a fresh
     // array reference on every render and would cause an infinite re-fetch loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSubject, profile.grade, profile.subjectLabel]);
+  }, [activeSubject, profile.grade, profile.subjectLabel, profile.chapter]);
 
   // NEW: Reset search when topic is selected
   useEffect(() => {
@@ -3316,6 +3326,7 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
           subject: activeSubject,
           grade: profile.grade,
           topic: topic,
+          chapter: profile.chapter || null,  // keeps the lesson grounded on the picked NCERT chapter when topic is a subtopic
           history
         })
       });
