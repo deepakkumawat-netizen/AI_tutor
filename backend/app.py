@@ -24,6 +24,31 @@ from mcp_server import get_topics, explain_topic, explain_topic_stream, practice
 from nlp_engine import nlp_engine
 import voyage_service
 
+# Track Voyage soft-fail state so we only log a noisy "no payment method /
+# rate limited" error once per process instead of on every embed call.
+_voyage_warned = False
+
+def _log_voyage_error(where: str, err: Exception) -> None:
+    """Log a Voyage error — full message the first time, then a one-liner
+    on subsequent calls so the deploy logs aren't flooded by per-request
+    rate-limit/no-payment errors that all degrade gracefully to empty
+    results anyway."""
+    global _voyage_warned
+    msg = str(err)
+    is_soft = (
+        "payment method" in msg.lower()
+        or "rate limit" in msg.lower()
+        or "rate_limit" in msg.lower()
+        or "reduced rate" in msg.lower()
+    )
+    if is_soft:
+        if not _voyage_warned:
+            print(f"[WARN] Voyage degraded ({where}): {msg[:200]} — silencing further messages this process.")
+            _voyage_warned = True
+        return
+    # Real errors still surface every time
+    print(f"[ERROR] {where}: {err}")
+
 # Import database with explicit error handling
 try:
     from database import db
@@ -767,7 +792,7 @@ async def embed_topics(request: EmbedTopicsRequest):
                 db.save_topic_embedding(request.subject, request.grade, topic, emb)
         return {"success": True, "embedded": len(new_topics), "total": len(request.topics)}
     except Exception as e:
-        print(f"[ERROR] embed_topics: {e}")
+        _log_voyage_error("embed_topics", e)
         return {"success": False, "error": str(e)}
 
 @app.post("/api/semantic/search")
@@ -783,7 +808,7 @@ async def semantic_search(request: SemanticSearchRequest):
         results = voyage_service.rank_by_similarity(query_emb, candidates, top_k=request.top_k)
         return {"success": True, "results": [{"topic": r["topic"], "score": r["score"]} for r in results]}
     except Exception as e:
-        print(f"[ERROR] semantic_search: {e}")
+        _log_voyage_error("semantic_search", e)
         return {"success": False, "error": str(e), "results": []}
 
 @app.post("/api/semantic/related")
@@ -826,7 +851,7 @@ async def related_topics(request: SemanticSearchRequest):
         results = voyage_service.rank_diverse(query_emb, candidates, top_k=request.top_k, min_score=0.3)
         return {"success": True, "results": [{"topic": r["topic"], "score": r["score"]} for r in results]}
     except Exception as e:
-        print(f"[ERROR] related_topics: {e}")
+        _log_voyage_error("related_topics", e)
         return {"success": False, "error": str(e), "results": []}
 
 @app.post("/api/semantic/recommend")
@@ -848,7 +873,7 @@ async def recommend_topics(request: RecommendRequest):
             "results": [{"topic": r["topic"], "subject": r.get("subject"), "score": r["score"]} for r in results]
         }
     except Exception as e:
-        print(f"[ERROR] recommend_topics: {e}")
+        _log_voyage_error("recommend_topics", e)
         return {"success": False, "error": str(e), "results": []}
 
 

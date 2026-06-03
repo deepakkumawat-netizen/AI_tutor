@@ -47,6 +47,24 @@ def _is_rate_limit(err: Exception) -> bool:
     ))
 
 
+# Track Claude state per-process so a permanent error (credit exhausted,
+# invalid key, etc.) doesn't cause every single request to retry it and
+# pay ~500ms of round-trip latency before falling through to Groq.
+_claude_disabled_reason = None
+
+
+def _is_claude_permanent_failure(err: Exception) -> bool:
+    """Errors that won't resolve by retrying — disable Claude until the
+    process restarts (next deploy)."""
+    msg = str(err).lower()
+    return any(s in msg for s in (
+        "credit balance is too low",
+        "invalid x-api-key",
+        "authentication_error",
+        "permission_error",
+    ))
+
+
 class _Msg:
     __slots__ = ("content", "role")
     def __init__(self, content: str, role: str = "assistant"):
@@ -118,15 +136,21 @@ def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
     call where the cost difference matters more than latency.
     """
     kwargs.pop("model", None)
+    global _claude_disabled_reason
 
     last_err = None
+    claude_ready = _anthropic is not None and _claude_disabled_reason is None
 
-    if prefer_anthropic and _anthropic is not None:
+    if prefer_anthropic and claude_ready:
         try:
             return _call_claude(messages, **kwargs)
         except Exception as e:
             last_err = e
-            print(f"[llm] Claude (preferred) failed: {e} — falling through to Groq")
+            if _is_claude_permanent_failure(e):
+                _claude_disabled_reason = str(e).splitlines()[0][:200]
+                print(f"[llm] Claude disabled for this process — {_claude_disabled_reason}. Future requests skip Claude.")
+            else:
+                print(f"[llm] Claude (preferred) failed: {e} — falling through to Groq")
 
     if _groq is not None:
         for model in GROQ_FALLBACK_MODELS:
@@ -138,13 +162,17 @@ def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
                 last_err = e
                 print(f"[llm] Groq {model} rate-limited, trying next…")
 
-    if not prefer_anthropic and _anthropic is not None:
+    if not prefer_anthropic and claude_ready:
         try:
             print(f"[llm] All Groq models exhausted — falling back to Claude {CLAUDE_MODEL}")
             return _call_claude(messages, **kwargs)
         except Exception as e:
             last_err = e
-            print(f"[llm] Claude fallback failed: {e}")
+            if _is_claude_permanent_failure(e):
+                _claude_disabled_reason = str(e).splitlines()[0][:200]
+                print(f"[llm] Claude disabled for this process — {_claude_disabled_reason}")
+            else:
+                print(f"[llm] Claude fallback failed: {e}")
 
     if last_err is not None:
         raise last_err
