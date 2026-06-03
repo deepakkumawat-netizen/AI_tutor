@@ -2779,6 +2779,26 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
     return () => { cancelled = true; };
   }, [profile.grade]);
 
+  // CBSE chapter list for the currently-selected (grade, subject) pair.
+  // Empty array until both are picked. Populated from
+  // GET /api/curriculum?grade=X&subject=Y. Selecting a chapter sets
+  // profile.topic to the chapter title — the lesson view then re-fetches
+  // the explanation grounded on that chapter's CBSE concepts via the
+  // backend's _cbse_block helper.
+  const [cbseChapters, setCbseChapters] = useState([]);
+  useEffect(() => {
+    if (!profile.grade || !activeSubject || isCustom) {
+      setCbseChapters([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/curriculum?grade=${encodeURIComponent(profile.grade)}&subject=${encodeURIComponent(activeSubject)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d && Array.isArray(d.chapters)) setCbseChapters(d.chapters); })
+      .catch(() => { /* silently fall back to the topic chips elsewhere */ });
+    return () => { cancelled = true; };
+  }, [profile.grade, activeSubject, isCustom]);
+
   // Sync the draft if the profile's subjectLabel changes outside this rail.
   useEffect(() => { setCustomDraft(profile.subjectLabel || ""); }, [profile.subjectLabel]);
 
@@ -2895,6 +2915,37 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
             >🎤</button>
           </div>
         )}
+      </div>
+
+      {/* Chapter dropdown — appears once grade + CBSE subject are picked.
+          Lists every NCERT chapter for that (grade, subject) pair. Choosing
+          a chapter sets profile.topic to the chapter title, which kicks the
+          lesson view into re-fetching the explanation grounded on that
+          chapter's official concepts (see _cbse_block in mcp_server.py). */}
+      <div>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>
+          Chapter {cbseChapters.length > 0 && <span style={{ color: BLUE, fontWeight:600 }}>· CBSE</span>}
+        </label>
+        <select
+          value={profile.topic || ""}
+          onChange={e => {
+            const v = e.target.value;
+            if (!v) return;
+            onUpdateProfile?.({ topic: v });
+            setViewMode?.("lesson");
+          }}
+          disabled={!activeSubject || isCustom || cbseChapters.length === 0}
+          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor: (activeSubject && !isCustom && cbseChapters.length > 0) ? "pointer" : "not-allowed", fontFamily:"inherit", opacity: (activeSubject && !isCustom && cbseChapters.length > 0) ? 1 : 0.6 }}
+        >
+          <option value="">
+            {!profile.grade ? "Pick a grade first" : !activeSubject ? "Pick a subject first" : isCustom ? "—" : cbseChapters.length === 0 ? "Loading chapters…" : "Select chapter…"}
+          </option>
+          {cbseChapters.map(ch => (
+            <option key={(ch.ch || "") + ch.title} value={ch.title}>
+              {ch.ch ? `${ch.ch}. ${ch.title}` : ch.title}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div style={{ borderTop:"1px solid var(--border-color)", paddingTop:12, display:"flex", flexDirection:"column", gap:4 }}>
