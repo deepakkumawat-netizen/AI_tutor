@@ -2746,6 +2746,9 @@ function WelcomeHub({ profile }) {
 // subject input that drives topic generation via /api/mcp/get-topics.
 function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome }) {
   const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
+  // Fallback subject list (used before a grade is picked or if /api/curriculum
+  // ever fails). When a grade IS picked, we replace this with the actual CBSE
+  // subjects for that grade fetched from the backend below.
   const SUBJECTS_LIST = Object.keys(SUBJECTS).map(k => ({ id: k, name: SUBJECTS[k]?.name || k, emoji: SUBJECT_EMOJIS[SUBJECTS[k]?.name] || "📚" }));
   const tabs = [
     { id:"lesson",     label:"Lesson",     icon:"📚" },
@@ -2759,6 +2762,22 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
   const [customDraft, setCustomDraft] = useState(profile.subjectLabel || "");
   const [listening, setListening] = useState(false);
   const recogRef = useRef(null);
+
+  // CBSE subject list for the currently-selected grade. Empty array before
+  // a grade is picked or while the request is in flight; populated from
+  // GET /api/curriculum?grade={grade}. When non-empty, the Subject dropdown
+  // shows ONLY these (the official NCERT subjects for that grade) so the
+  // tutor stays CBSE-aligned end-to-end.
+  const [cbseSubjects, setCbseSubjects] = useState([]);
+  useEffect(() => {
+    if (!profile.grade) { setCbseSubjects([]); return; }
+    let cancelled = false;
+    fetch(`/api/curriculum?grade=${encodeURIComponent(profile.grade)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d && Array.isArray(d.subjects)) setCbseSubjects(d.subjects); })
+      .catch(() => { /* leave cbseSubjects empty; falls back to SUBJECTS_LIST */ });
+    return () => { cancelled = true; };
+  }, [profile.grade]);
 
   // Sync the draft if the profile's subjectLabel changes outside this rail.
   useEffect(() => { setCustomDraft(profile.subjectLabel || ""); }, [profile.subjectLabel]);
@@ -2819,7 +2838,9 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
       </div>
 
       <div>
-        <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>Subject</label>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>
+          Subject {profile.grade && cbseSubjects.length > 0 && <span style={{ color: BLUE, fontWeight:600 }}>· CBSE</span>}
+        </label>
         <select
           value={isCustom ? "custom" : (activeSubject || "")}
           onChange={e => {
@@ -2832,10 +2853,18 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
               onUpdateProfile?.({ subject: v, subjectLabel: "" });
             }
           }}
-          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
+          disabled={!profile.grade}
+          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor: profile.grade ? "pointer" : "not-allowed", fontFamily:"inherit", opacity: profile.grade ? 1 : 0.6 }}
         >
-          <option value="">Select subject…</option>
-          {SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)}
+          <option value="">{profile.grade ? "Select subject…" : "Pick a grade first"}</option>
+          {/* When a CBSE grade is selected we show ONLY the NCERT subjects
+              for that grade — so a Grade 7 student sees Maths/Science/Social
+              Science/English/Hindi (Lit + Gr), not Computer Science. Pre-
+              grade we show the generic fallback list. */}
+          {profile.grade && cbseSubjects.length > 0
+            ? cbseSubjects.map(s => <option key={s} value={s}>{SUBJECT_EMOJIS[s] || "📘"} {s}</option>)
+            : SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)
+          }
           <option value="custom">✨ Other Subject…</option>
         </select>
 

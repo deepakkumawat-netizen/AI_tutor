@@ -231,9 +231,80 @@ async def health_check():
 # API ENDPOINTS - Using MCP Server Functions
 # ═══════════════════════════════════════════════════════════════════════════
 
+# CBSE TOC — drives the Grade → Subject → Chapter dropdowns and the
+# curriculum-grounding block in get_topics / explain_topic prompts.
+try:
+    import cbse_kb
+    CBSE_AVAILABLE = bool(cbse_kb.CBSE_KB)
+except Exception as _e:
+    print(f"[CBSE] knowledge base unavailable: {_e}")
+    cbse_kb = None
+    CBSE_AVAILABLE = False
+
+
+@app.get("/api/curriculum")
+async def api_curriculum(grade: str = "", subject: str = ""):
+    """Return the CBSE TOC for the Grade → Subject → Chapter pickers.
+
+    No params: full {grade: {subject: [chapters]}} tree, plus a sorted
+    list of grade keys so the frontend can populate dropdowns in order.
+    grade only: subjects available for that grade + chapters per subject.
+    grade + subject: chapters for that exact (grade, subject) pair.
+    """
+    if not CBSE_AVAILABLE:
+        return {"available": False, "grades": []}
+
+    grades_sorted = sorted(
+        cbse_kb.CBSE_KB.keys(),
+        key=lambda g: int("".join(c for c in g if c.isdigit()) or "0"),
+    )
+
+    if not grade:
+        return {"available": True, "grades": grades_sorted, "tree": cbse_kb.CBSE_KB}
+
+    subjects = cbse_kb.get_subjects(grade)
+    if not subject:
+        return {
+            "available": True,
+            "grade": grade,
+            "subjects": subjects,
+            "chapters": {s: cbse_kb.get_chapters(grade, s) for s in subjects},
+        }
+    return {
+        "available": True,
+        "grade": grade,
+        "subject": subject,
+        "chapters": cbse_kb.get_chapters(grade, subject),
+    }
+
+
 @app.post("/api/mcp/get-topics")
 async def api_get_topics(request: GetTopicsRequest):
-    """Get topics for a subject (standard or custom)"""
+    """Get topics for a subject (standard or custom).
+
+    When the requested (grade, subject) pair exists in the CBSE TOC,
+    return the official CBSE chapter titles directly so students get the
+    NCERT syllabus topics, not LLM-invented ones. Falls back to the
+    existing LLM-generated topic list for non-CBSE subjects (languages,
+    custom subjects, etc.).
+    """
+    if CBSE_AVAILABLE:
+        chapters = cbse_kb.get_chapters(request.grade, request.subject)
+        if chapters:
+            topics = [
+                ch.get("title", "").strip()
+                for ch in chapters
+                if ch.get("title")
+            ]
+            if topics:
+                return {
+                    "subject": request.subject,
+                    "grade": request.grade,
+                    "topics": topics,
+                    "count": len(topics),
+                    "type": "cbse",
+                    "chapters": chapters,  # full chapter objects (ch, title, concepts) for richer UI
+                }
     return get_topics(request.subject, request.grade)
 
 @app.post("/api/mcp/explain-topic")

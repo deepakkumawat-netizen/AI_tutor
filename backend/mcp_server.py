@@ -160,17 +160,62 @@ def get_grade_language(grade: str) -> str:
     else:
         return "Use academic and technical language. Include advanced concepts and detailed analysis. High school level (10-12). 500-700 words."
 
+# ─── CBSE grounding ──────────────────────────────────────────────────────────
+# When a (grade, subject) pair has CBSE chapters in cbse_toc.json, every
+# explain/practice prompt below is anchored to the actual CBSE NCERT chapter
+# so the tutor stays inside the official syllabus instead of drifting into
+# off-curriculum material.
+try:
+    import cbse_kb as _cbse_kb
+    _CBSE_AVAILABLE = bool(_cbse_kb.CBSE_KB)
+except Exception:
+    _cbse_kb = None
+    _CBSE_AVAILABLE = False
+
+
+def _cbse_block(topic: str, grade: str, subject: str) -> str:
+    """Return a CBSE-grounding prompt fragment for a topic/grade/subject,
+    or '' if the topic isn't in the CBSE TOC (custom subject, language, etc).
+    Always strips down to the single best-matching chapter so the prompt
+    stays tight."""
+    if not _CBSE_AVAILABLE:
+        return ""
+    chapters = _cbse_kb.get_chapters(grade, subject)
+    if not chapters:
+        return ""
+    # Exact-title match preferred — that's the case when the frontend
+    # passed the CBSE chapter title verbatim as `topic`.
+    match = None
+    topic_low = (topic or "").lower().strip()
+    for ch in chapters:
+        if (ch.get("title") or "").lower().strip() == topic_low:
+            match = ch
+            break
+    if not match:
+        return ""
+    return (
+        "\n=== CBSE CURRICULUM GROUNDING ===\n"
+        f"This is {match.get('ch', 'a chapter')} of the {subject} NCERT textbook for {grade}.\n"
+        f"Official chapter title: {match.get('title', '')}\n"
+        f"Official chapter concepts: {match.get('concepts', '')}\n"
+        "Stay strictly within the scope of these CBSE concepts — do not introduce "
+        "material from other chapters or grades.\n"
+        "=== END CBSE GROUNDING ===\n"
+    )
+
+
 def explain_topic(topic: str, grade: str, subject: str, history: list = None) -> dict:
     """Explain a topic in detail with grade-appropriate formatting"""
     try:
         grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
         lang_style = get_grade_language(grade)
+        cbse_block = _cbse_block(topic, grade, subject)
 
         messages = [
             {"role": "system", "content": f"""You are an expert tutor explaining '{topic}' from {subject} to {grade} students.
 
 {lang_style}
-
+{cbse_block}
 Format EXACTLY as:
 DEFINITION:
 [Clear definition]
@@ -287,12 +332,13 @@ def explain_topic_stream(topic: str, grade: str, subject: str, history: list = N
     """Stream explanation token by token using OpenAI streaming"""
     grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
     lang_style = get_grade_language(grade)
+    cbse_block = _cbse_block(topic, grade, subject)
 
     messages = [
         {"role": "system", "content": f"""You are an expert tutor explaining '{topic}' from {subject} to {grade} students.
 
 {lang_style}
-
+{cbse_block}
 Format EXACTLY as:
 DEFINITION:
 [Clear definition]
@@ -326,11 +372,22 @@ SUMMARY:
 
 
 def practice_question(subject: str, grade: str) -> dict:
-    """Generate a practice question"""
+    """Generate a practice question — CBSE-grounded when available."""
+    # Practice questions don't get a single `topic`; ground on the broader
+    # subject syllabus by listing all chapter titles for this grade+subject.
+    cbse_ctx = ""
+    if _CBSE_AVAILABLE:
+        chapters = _cbse_kb.get_chapters(grade, subject)
+        if chapters:
+            titles = [ch.get("title", "") for ch in chapters if ch.get("title")]
+            cbse_ctx = (
+                f"\n\nCBSE NCERT {grade} {subject} chapters: {', '.join(titles)}.\n"
+                f"The question MUST be from one of these chapters, in CBSE NCERT exam style.\n"
+            )
     try:
         response = chat_with_fallback(
             messages=[
-                {"role": "system", "content": f"Generate a practice question for {grade} students learning {subject}."},
+                {"role": "system", "content": f"Generate a practice question for {grade} students learning {subject}.{cbse_ctx}"},
                 {"role": "user", "content": f"Create a practice question for {subject} at {grade} level with answer."}
             ],
             max_tokens=500
