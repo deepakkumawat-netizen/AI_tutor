@@ -1894,14 +1894,18 @@ function VideoPlayer({ profile }) {
                     rel=0 (no related videos), modestbranding=1 (no YT logo),
                     iv_load_policy=3 (no annotations), disablekb=1 (no kbd
                     shortcuts), fs=1 (still allow fullscreen for accessibility).
-                    Students cannot click through to YouTube from this player. */}
+                    sandbox attribute blocks the YouTube branded overlay's
+                    'Watch on YouTube' link click from opening youtube.com —
+                    no `allow-popups`, no `allow-top-navigation`, so the
+                    in-player link click is a no-op at the browser level. */}
                 <iframe
                   key={activeVideo.id}
                   src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&playsinline=1&fs=1`}
                   title={activeVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
                   referrerPolicy="strict-origin-when-cross-origin"
+                  sandbox="allow-scripts allow-same-origin allow-presentation"
                   style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:"none" }}
                   onError={() => {
                     // Skip unavailable video, try next
@@ -4458,9 +4462,10 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
                 <iframe
                   src={`https://www.youtube-nocookie.com/embed/${selectedVideo.id}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&playsinline=1&fs=1`}
                   title={selectedVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
                   referrerPolicy="strict-origin-when-cross-origin"
+                  sandbox="allow-scripts allow-same-origin allow-presentation"
                   style={{
                     position:"absolute",
                     inset:0,
