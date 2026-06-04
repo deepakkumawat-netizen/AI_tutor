@@ -526,6 +526,9 @@ class YouTubeRequest(BaseModel):
     subject: Optional[str] = None
     grade: Optional[str] = None
     topic: Optional[str] = None
+    query: Optional[str] = None       # explicit search query (CBSE-aware, built on the frontend)
+    chapter: Optional[str] = None     # CBSE chapter title — presence triggers ncert_only mode
+    ncert_only: Optional[bool] = None  # explicit override; if None, auto-on when chapter is set
 
 class SaveChatRequest(BaseModel):
     student_id: str
@@ -562,10 +565,23 @@ class QuickAnswerRequest(BaseModel):
 
 @app.post("/api/youtube")
 async def search_youtube(request: YouTubeRequest):
-    """Search YouTube for educational videos using MCP tool"""
+    """Search YouTube for educational videos.
+
+    When a CBSE chapter is present (request.chapter) we automatically turn
+    on ncert_only mode so results are restricted to NCERT / Khan Academy /
+    DIKSHA and other trusted educational channels — keeps Bollywood and
+    random folklore videos out of the lesson view. Caller can also pass
+    request.ncert_only explicitly to force the mode."""
     topic = request.topic or request.query or request.subject
-    print(f"🎬 Searching videos for {topic} ({request.grade})...")
-    return get_educational_videos(request.subject, request.grade, topic)
+    ncert_only = request.ncert_only if request.ncert_only is not None else bool(request.chapter)
+    print(f"🎬 Searching videos for {topic} ({request.grade}) ncert_only={ncert_only}...")
+    return get_educational_videos(
+        subject=request.subject,
+        grade=request.grade,
+        topic=topic,
+        query=request.query,
+        ncert_only=ncert_only,
+    )
 
 @app.post("/api/quick-answer")
 async def get_quick_answer(request: QuickAnswerRequest):

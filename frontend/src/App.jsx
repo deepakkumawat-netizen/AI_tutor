@@ -1772,9 +1772,21 @@ function VideoPlayer({ profile }) {
   const [searching,  setSearching]  = useState(false);
   const [filterAge,  setFilterAge]  = useState("all");
 
-  // Build initial search query from profile
-  const buildQuery = (topic, grade, subject) => {
+  // Build initial search query from profile.
+  // When a CBSE chapter is selected (profile.chapter), search YouTube for
+  // THAT specific NCERT chapter title — often in native script like
+  // 'चतुर चित्रकार' — instead of the abstract English subtopic. Otherwise
+  // videos returned are wildly off-topic (Greek mythology, handwriting,
+  // generic 'trickster tales') because the subtopic phrase is too generic
+  // and English-only.
+  const buildQuery = (topic, grade, subject, chapter) => {
     const gradeNum = grade.replace("Grade ","");
+    if (chapter && chapter.trim()) {
+      // Quote the chapter so YouTube matches the exact NCERT title;
+      // anchor to school content with NCERT + Class + Subject so results
+      // skew educational, not Bollywood / generic-folklore.
+      return `"${chapter}" NCERT Class ${gradeNum} ${subject} chapter`;
+    }
     const ageHint  = parseInt(gradeNum) + 5;
     return `${topic} ${subject} lesson for grade ${gradeNum} students age ${ageHint}`;
   };
@@ -1786,7 +1798,13 @@ function VideoPlayer({ profile }) {
       const res = await fetch(`${API}/api/youtube`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, grade: profile.grade, subject: profile.subject }),
+        body: JSON.stringify({
+          query: q,
+          grade: profile.grade,
+          subject: profile.subject,
+          chapter: profile.chapter || "",  // presence of chapter auto-enables ncert_only mode on backend
+          topic: profile.topic || "",
+        }),
       });
       if (!res.ok) throw new Error("YouTube API error");
       const data = await res.json();
@@ -1804,7 +1822,7 @@ function VideoPlayer({ profile }) {
   };
 
   useEffect(() => {
-    const q = buildQuery(profile.topic, profile.grade, profile.subjectLabel);
+    const q = buildQuery(profile.topic, profile.grade, profile.subjectLabel || profile.subject, profile.chapter);
     setQuery(q);
     fetchVideos(q);
   }, [profile]);
@@ -3425,14 +3443,23 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
   const fetchVideosForTopic = async (topic) => {
     setLoadingVideos(true);
     try {
+      // When a CBSE chapter is selected, use the chapter title as the
+      // primary query — that's what the student is actually studying
+      // (e.g. 'चतुर चित्रकार' from NCERT Hindi Class 5). Falls back to the
+      // topic-based query when no chapter is set (custom subjects etc.).
+      const gradeNum = (profile.grade || "").replace("Grade ","");
+      const query = profile.chapter && profile.chapter.trim()
+        ? `"${profile.chapter}" NCERT Class ${gradeNum} ${activeSubject} chapter`
+        : `${topic} for ${profile.grade} ${activeSubject} students`;
       const res = await fetch(`${API}/api/youtube`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: topic,
-          query: `${topic} for ${profile.grade} ${activeSubject} students`,
+          query: query,
           grade: profile.grade,
-          subject: activeSubject
+          subject: activeSubject,
+          chapter: profile.chapter || ""
         })
       });
       if (res.ok) {

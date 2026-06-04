@@ -557,8 +557,53 @@ def practice_question(subject: str, grade: str) -> dict:
             msg = f"Could not generate a practice question. Please try again."
         return {"error": err, "question": msg, "subject": subject, "grade": grade}
 
-def get_educational_videos(subject: str, grade: str, topic: str = None) -> dict:
-    """Get educational YouTube videos for a subject, topic, and grade level"""
+# Whitelist of trusted educational YouTube channels. When the student is on a
+# CBSE chapter, video results are restricted to these so they only see
+# NCERT-aligned / official educational content — not random folk-tale,
+# Bollywood, or mythology channels that the generic search was returning.
+# Matched case-insensitively as a substring of the YouTube channelTitle.
+TRUSTED_EDU_CHANNELS = [
+    # NCERT + Government of India
+    "ncert", "ncert official",
+    "diksha", "pm evidya", "pmevidya",
+    "swayamprabha", "swayam", "nios",
+    "cbse", "kvs", "kendriya vidyalaya",
+    # Trusted Indian K-12 platforms
+    "khan academy",                # global + India variants
+    "iken edu", "ikenedu",
+    "magnet brains",
+    "byju", "byju's",
+    "vedantu", "unacademy",
+    "lido learning", "extramarks",
+    "doubtnut",
+    # Trusted explainer channels often used for school content
+    "ted-ed", "ted ed",
+    "crashcourse", "crash course",
+]
+
+
+def _is_trusted_edu_channel(channel_name: str) -> bool:
+    """Case-insensitive substring match against TRUSTED_EDU_CHANNELS."""
+    if not channel_name:
+        return False
+    cn = channel_name.lower()
+    return any(t in cn for t in TRUSTED_EDU_CHANNELS)
+
+
+def get_educational_videos(subject: str, grade: str, topic: str = None, query: str = None, ncert_only: bool = False) -> dict:
+    """Get educational YouTube videos for a subject, topic, and grade level.
+
+    Args:
+        subject: subject name (e.g. 'Hindi', 'Maths')
+        grade: grade string (e.g. 'Grade 5')
+        topic: specific topic / chapter name to search (preferred over subject)
+        query: explicit search query — overrides the auto-built one when provided
+            (frontend builds CBSE-aware queries like
+            '\"चतुर चित्रकार\" NCERT Class 5 Hindi chapter')
+        ncert_only: if True, hard-filter results to TRUSTED_EDU_CHANNELS only.
+            If fewer than 2 trusted videos found, falls back to including
+            the top untrusted results so the page isn't empty.
+    """
     try:
         youtube_api_key = os.getenv("YOUTUBE_API_KEY")
 
@@ -573,27 +618,30 @@ def get_educational_videos(subject: str, grade: str, topic: str = None) -> dict:
         # Extract grade number
         grade_num = int(''.join(filter(str.isdigit, grade)) or 6)
 
-        # Build search query with specific topic if provided
-        search_term = topic if topic else subject
-
-        # Build search query with grade-appropriate keywords
-        if grade_num <= 3:
-            query = f"{search_term} lesson for kids"
-        elif grade_num <= 6:
-            query = f"{search_term} tutorial for {grade}"
+        # Use explicit query if supplied (frontend usually builds a better
+        # CBSE-aware one with the NCERT chapter title in native script).
+        if query and query.strip():
+            search_query = query.strip()
         else:
-            query = f"{search_term} lesson {grade}"
+            search_term = topic if topic else subject
+            if grade_num <= 3:
+                search_query = f"{search_term} lesson for kids"
+            elif grade_num <= 6:
+                search_query = f"{search_term} tutorial for {grade}"
+            else:
+                search_query = f"{search_term} lesson {grade}"
 
-        # YouTube API v3 search
+        # Fetch more results than we need so we can filter to trusted
+        # educational channels and still return a full set of 6.
         youtube_url = "https://www.googleapis.com/youtube/v3/search"
         params = {
             "part": "snippet",
-            "q": query,
+            "q": search_query,
             "type": "video",
-            "maxResults": 6,
-            "relevanceLanguage": "en",
+            "maxResults": 25 if ncert_only else 8,
             "key": youtube_api_key,
-            "order": "relevance"
+            "order": "relevance",
+            "safeSearch": "strict",
         }
 
         response = requests.get(youtube_url, params=params, timeout=10)
@@ -607,28 +655,45 @@ def get_educational_videos(subject: str, grade: str, topic: str = None) -> dict:
             }
 
         data = response.json()
-        videos = []
 
-        for item in data.get("items", [])[:6]:
+        all_videos = []
+        for item in data.get("items", []):
             video_id = item.get("id", {}).get("videoId")
             snippet = item.get("snippet", {})
+            if not video_id:
+                continue
+            channel = snippet.get("channelTitle", "Unknown")
+            all_videos.append({
+                "id": video_id,
+                "title": snippet.get("title", "Untitled"),
+                "description": snippet.get("description", ""),
+                "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+                "channel": channel,
+                "trusted": _is_trusted_edu_channel(channel),
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+            })
 
-            if video_id:
-                videos.append({
-                    "id": video_id,
-                    "title": snippet.get("title", "Untitled"),
-                    "description": snippet.get("description", ""),
-                    "thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
-                    "channel": snippet.get("channelTitle", "Unknown"),
-                    "url": f"https://www.youtube.com/watch?v={video_id}"
-                })
+        if ncert_only:
+            trusted = [v for v in all_videos if v["trusted"]][:6]
+            # If we couldn't find enough trusted videos, top up with the
+            # most-relevant untrusted ones so the page isn't empty — those
+            # come AFTER the trusted ones in display order.
+            if len(trusted) < 2:
+                extras = [v for v in all_videos if not v["trusted"]][: max(0, 6 - len(trusted))]
+                videos = trusted + extras
+            else:
+                videos = trusted
+        else:
+            # In default mode, still surface trusted channels first.
+            videos = sorted(all_videos[:6], key=lambda v: 0 if v["trusted"] else 1)
 
         return {
             "subject": subject,
             "grade": grade,
             "videos": videos,
             "count": len(videos),
-            "query": query
+            "query": search_query,
+            "ncert_only": ncert_only,
         }
 
     except requests.exceptions.Timeout:
