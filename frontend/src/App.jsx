@@ -2791,9 +2791,19 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
   // shows ONLY these (the official NCERT subjects for that grade) so the
   // tutor stays CBSE-aligned end-to-end.
   const [cbseSubjects, setCbseSubjects] = useState([]);
+  // Track loading state explicitly so the dropdown doesn't briefly flash
+  // the generic SUBJECTS_LIST fallback while the CBSE fetch is in flight.
+  // Without this, picking 'Grade 7' showed 'mathematics/science/cs/ai/...'
+  // for ~200ms before the real CBSE list arrived — if the user opened the
+  // dropdown during that window, they saw the wrong list.
+  const [cbseLoading, setCbseLoading] = useState(false);
   useEffect(() => {
-    if (!profile.grade) { setCbseSubjects([]); return; }
+    if (!profile.grade) { setCbseSubjects([]); setCbseLoading(false); return; }
     let cancelled = false;
+    setCbseLoading(true);
+    // Clear the previous grade's CBSE subjects immediately so we don't
+    // briefly render Grade 4's list while waiting for Grade 7's fetch.
+    setCbseSubjects([]);
     // Use the absolute API constant (not relative path) — matches every
     // other fetch in this file and avoids any base-path issues on Render.
     fetch(`${API}/api/curriculum?grade=${encodeURIComponent(profile.grade)}`)
@@ -2805,10 +2815,12 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
         } else {
           console.warn("[CBSE] /api/curriculum returned no subjects for", profile.grade, d);
         }
+        setCbseLoading(false);
       })
       .catch(err => {
+        if (cancelled) return;
         console.warn("[CBSE] /api/curriculum fetch failed for", profile.grade, err);
-        /* leave cbseSubjects empty; falls back to SUBJECTS_LIST */
+        setCbseLoading(false);
       });
     return () => { cancelled = true; };
   }, [profile.grade]);
@@ -2883,7 +2895,14 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
         <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>Grade</label>
         <select
           value={profile.grade || ""}
-          onChange={e => onUpdateProfile?.({ grade: e.target.value, chapter: "", topic: "" })}
+          onChange={e => {
+            // Reset everything dependent on grade — CBSE subjects/chapters
+            // differ per grade, so leaving a stale Grade-12 'Biology' selected
+            // while switching to Grade 4 would point at a subject that may
+            // not exist in the new grade's NCERT list.
+            setActiveSubject("");
+            onUpdateProfile?.({ grade: e.target.value, subject: "", subjectLabel: "", chapter: "", topic: "" });
+          }}
           style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor:"pointer", fontFamily:"inherit" }}
         >
           <option value="">Select grade…</option>
@@ -2907,18 +2926,31 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
               onUpdateProfile?.({ subject: v, subjectLabel: "", chapter: "", topic: "" });
             }
           }}
-          disabled={!profile.grade}
-          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor: profile.grade ? "pointer" : "not-allowed", fontFamily:"inherit", opacity: profile.grade ? 1 : 0.6 }}
+          disabled={!profile.grade || cbseLoading}
+          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor: (profile.grade && !cbseLoading) ? "pointer" : "not-allowed", fontFamily:"inherit", opacity: (profile.grade && !cbseLoading) ? 1 : 0.6 }}
         >
-          <option value="">{profile.grade ? "Select subject…" : "Pick a grade first"}</option>
+          <option value="">
+            {!profile.grade ? "Pick a grade first"
+              : cbseLoading ? "Loading CBSE subjects…"
+              : "Select subject…"}
+          </option>
           {/* When a CBSE grade is selected we show ONLY the NCERT subjects
               for that grade — so a Grade 7 student sees Maths/Science/Social
-              Science/English/Hindi (Lit + Gr), not Computer Science. Pre-
-              grade we show the generic fallback list. */}
-          {profile.grade && cbseSubjects.length > 0
-            ? cbseSubjects.map(s => <option key={s} value={s}>{SUBJECT_EMOJIS[s] || "📘"} {s}</option>)
-            : SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)
-          }
+              Science/English/Hindi (Lit + Gr), not the generic Computer
+              Science fallback. During the brief CBSE fetch window the
+              dropdown is DISABLED — we do NOT fall back to SUBJECTS_LIST
+              because the user might pick a non-CBSE subject in the flash
+              second before the real list arrives. */}
+          {!cbseLoading && profile.grade && cbseSubjects.length > 0
+            && cbseSubjects.map(s => <option key={s} value={s}>{SUBJECT_EMOJIS[s] || "📘"} {s}</option>)}
+          {/* Pre-grade users get the generic fallback so the dropdown
+              isn't empty before they pick a grade. */}
+          {!profile.grade
+            && SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)}
+          {/* If the CBSE fetch failed (no subjects + not loading + grade set),
+              fall back to the generic list so the dropdown isn't unusable. */}
+          {profile.grade && !cbseLoading && cbseSubjects.length === 0
+            && SUBJECTS_LIST.map(s => <option key={s.id} value={s.name}>{s.emoji} {s.name}</option>)}
           <option value="custom">✨ Other Subject…</option>
         </select>
 
