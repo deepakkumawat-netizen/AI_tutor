@@ -1822,6 +1822,11 @@ function VideoPlayer({ profile }) {
   };
 
   useEffect(() => {
+    // Clear any previously-fetched videos immediately so the user doesn't
+    // see a stale grid (e.g. Grade 5 Hindi 'Chatur Chitrakar' videos
+    // still showing after switching to Grade 9 physical education).
+    // fetchVideos will repopulate as soon as the new fetch returns.
+    setVideos([]);
     const q = buildQuery(profile.topic, profile.grade, profile.subjectLabel || profile.subject, profile.chapter);
     setQuery(q);
     fetchVideos(q);
@@ -2853,12 +2858,32 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
   useEffect(() => {
     if (!profile.grade || !activeSubject || isCustom) {
       setCbseChapters([]);
+      // Safety net: when we have no CBSE chapter list (custom subject /
+      // no grade picked), any value still sitting in profile.chapter is
+      // stale and would poison downstream queries (video search, lesson
+      // grounding). Clear it.
+      if (profile.chapter) onUpdateProfile?.({ chapter: "" });
       return;
     }
     let cancelled = false;
     fetch(`${API}/api/curriculum?grade=${encodeURIComponent(profile.grade)}&subject=${encodeURIComponent(activeSubject)}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d && Array.isArray(d.chapters)) setCbseChapters(d.chapters); })
+      .then(d => {
+        if (cancelled) return;
+        if (d && Array.isArray(d.chapters)) {
+          setCbseChapters(d.chapters);
+          // If the currently-selected chapter doesn't exist in the new
+          // grade/subject's chapter list (e.g. switched from Grade 5 Hindi
+          // 'चतुर चित्रकार' to Grade 9 Maths), clear it so it doesn't get
+          // re-used in the next YouTube query.
+          if (profile.chapter) {
+            const titles = d.chapters.map(c => (c.title || "").trim());
+            if (!titles.includes(profile.chapter.trim())) {
+              onUpdateProfile?.({ chapter: "" });
+            }
+          }
+        }
+      })
       .catch(err => { console.warn("[CBSE] chapter fetch failed:", err); });
     return () => { cancelled = true; };
   }, [profile.grade, activeSubject, isCustom]);
@@ -2870,8 +2895,12 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
     const t = (text || "").trim();
     if (!t) return;
     setActiveSubject("custom");
-    // subjectLabel is what /api/mcp/get-topics receives when subject==="custom"
-    onUpdateProfile?.({ subject: "custom", subjectLabel: t });
+    // subjectLabel is what /api/mcp/get-topics receives when subject==="custom".
+    // ALSO clear chapter + topic: switching to a custom subject means the
+    // previously-selected CBSE chapter (e.g. 'चतुर चित्रकार') no longer
+    // applies. Without this clear, the video query was still using the old
+    // chapter title and returning videos from the prior CBSE lesson.
+    onUpdateProfile?.({ subject: "custom", subjectLabel: t, chapter: "", topic: "" });
   };
 
   const startVoice = () => {
