@@ -309,7 +309,9 @@ REAL-WORLD EXAMPLE:
 [Practical example students can relate to]
 
 SUMMARY:
-[Brief recap in 1-2 sentences]"""}
+[Brief recap in 1-2 sentences]
+
+CRITICAL FORMATTING RULE: The section LABELS — DEFINITION:, KEY CONCEPTS:, REAL-WORLD EXAMPLE:, SUMMARY: — MUST appear in ENGLISH exactly as shown, even when the lesson body is written in Hindi / Sanskrit / Urdu / Punjabi / Tamil / regional languages. Only the CONTENT under each label is translated. The frontend parses these English labels to render the lesson in sections; if you translate the labels (e.g. write 'परिभाषा:' instead of 'DEFINITION:'), the whole lesson renders as one unstructured paragraph."""}
         ]
         if history:
             messages.extend(history[-6:])
@@ -323,25 +325,101 @@ SUMMARY:
 
         content = response.choices[0].message.content
 
-        # Parse into sections (handle both markdown and plain text headers)
+        # Parse into sections (handle both markdown and plain text headers).
+        # Also accept native-script equivalents in case the LLM translates the
+        # labels despite the system prompt telling it not to (Hindi lessons
+        # frequently emitted 'परिभाषा:' instead of 'DEFINITION:', collapsing
+        # the whole lesson into one unstructured paragraph).
         sections = {}
         current_section = None
         current_content = []
+
+        # Aliases for each section header. Lowercased lookup; the original
+        # case-mapping for ENGLISH headers stays via line_upper.
+        _section_aliases = {
+            'definition': [
+                'definition', 'परिभाषा', 'परिभासा',  # Hindi
+                'परिभाषा', 'व्याख्या',                   # Sanskrit / alt
+                'تعریف', 'تعارف',                       # Urdu
+                'ਪਰਿਭਾਸ਼ਾ',                            # Punjabi
+                'வரையறை',                              # Tamil
+                'వ్యాఖ్యానం',                          # Telugu
+                'ವ್ಯಾಖ್ಯಾನ',                            # Kannada
+                'നിർവചനം',                             # Malayalam
+                'व्याख्या',                              # Marathi
+                'সংজ্ঞা',                              # Bengali
+                'વ્યાખ્યા',                             # Gujarati
+            ],
+            'keyPoints': [
+                'key concepts', 'key points', 'main ideas',
+                'मुख्य अवधारणाएं', 'मुख्य अवधारणाएँ', 'मुख्य बिंदु', 'मुख्य विचार',
+                'मुख्य संकल्पना',
+                'اہم تصورات', 'کلیدی نکات',
+                'ਮੁੱਖ ਧਾਰਨਾਵਾਂ',
+                'முக்கிய கருத்துக்கள்',
+                'ముఖ్య భావనలు',
+                'ಪ್ರಮುಖ ಪರಿಕಲ್ಪನೆಗಳು',
+                'പ്രധാന ആശയങ്ങൾ',
+                'मुख्य संकल्पना',
+                'মূল ধারণা',
+                'મુખ્ય ખ્યાલો',
+            ],
+            'example': [
+                'real-world example', 'real world example', 'example',
+                'वास्तविक दुनिया का उदाहरण', 'वास्तविक उदाहरण', 'उदाहरण',
+                'मिसाल', 'مثال', 'حقیقی مثال',
+                'ਅਸਲ-ਸੰਸਾਰ ਉਦਾਹਰਨ', 'ਉਦਾਹਰਨ',
+                'நிஜ உலக உதாரணம்', 'உதாரணம்',
+                'వాస్తవ ప్రపంచ ఉదాహరణ', 'ఉదాహరణ',
+                'ನೈಜ ಪ್ರಪಂಚದ ಉದಾಹರಣೆ', 'ಉದಾಹರಣೆ',
+                'യഥാർത്ഥ ലോക ഉദാഹരണം', 'ഉദാഹരണം',
+                'वास्तविक जगाचे उदाहरण', 'उदाहरण',
+                'বাস্তব উদাহরণ', 'উদাহরণ',
+                'વાસ્તવિક દુનિયાનું ઉદાહરણ', 'ઉદાહરણ',
+            ],
+            'summary': [
+                'summary', 'recap',
+                'सारांश', 'निष्कर्ष', 'सार',
+                'خلاصہ', 'اختصار',
+                'ਸਾਰ', 'ਸੰਖੇਪ',
+                'சுருக்கம்',
+                'సారాంశం',
+                'ಸಾರಾಂಶ',
+                'സംഗ്രഹം',
+                'सारांश',
+                'সারাংশ',
+                'સારાંશ',
+            ],
+        }
+
+        def _match_section(line_stripped: str, line_upper: str):
+            """Return the section key ('definition'/'keyPoints'/'example'/'summary')
+            if this line is a section header, else None. Strips markdown #
+            and trailing colon for matching."""
+            if not (line_stripped.startswith('#') or line_stripped.endswith(':')):
+                return None
+            # Strip markdown hashes, trailing colon, and bold markers
+            label = line_stripped.lstrip('#').strip().rstrip(':').strip()
+            label = label.lstrip('*').rstrip('*').strip()
+            label_lower = label.lower()
+            for section_key, aliases in _section_aliases.items():
+                for alias in aliases:
+                    if alias.lower() == label_lower:
+                        return section_key
+                    # Tolerate the label CONTAINING the alias for English
+                    # (handles e.g. 'KEY CONCEPTS OF X:' or '### Summary')
+                    if section_key in ('keyPoints', 'definition', 'example', 'summary') and alias.isascii() and alias.lower() in label_lower:
+                        return section_key
+            return None
 
         lines = content.split('\n')
         for line in lines:
             line_stripped = line.strip()
             line_upper = line_stripped.upper()
 
-            # Check for section headers (markdown "###" OR plain text with ":")
-            is_header = any(
-                (line_stripped.startswith('#') or line_stripped.endswith(':')) and keyword in line_upper
-                for keyword in ['DEFINITION', 'KEY CONCEPTS', 'REAL-WORLD EXAMPLE', 'SUMMARY']
-            ) or (
-                line_stripped.endswith(':') and 'EXAMPLE' in line_upper and 'REAL-WORLD' not in line_upper
-            )
+            matched_section = _match_section(line_stripped, line_upper)
 
-            if is_header:
+            if matched_section:
                 # Save previous section
                 if current_section and current_content:
                     # Remove empty lines from end
@@ -349,18 +427,7 @@ SUMMARY:
                         current_content.pop()
                     sections[current_section] = '\n'.join(current_content).strip()
                 current_content = []
-
-                # Identify new section
-                if 'DEFINITION' in line_upper:
-                    current_section = 'definition'
-                elif 'KEY CONCEPTS' in line_upper:
-                    current_section = 'keyPoints'
-                elif 'REAL-WORLD EXAMPLE' in line_upper:
-                    current_section = 'example'
-                elif 'SUMMARY' in line_upper:
-                    current_section = 'summary'
-                elif 'EXAMPLE' in line_upper:
-                    current_section = 'example'
+                current_section = matched_section
             elif current_section is not None:
                 # Add line to current section (including blank lines)
                 current_content.append(line)
@@ -433,7 +500,9 @@ REAL-WORLD EXAMPLE:
 [Practical example students can relate to]
 
 SUMMARY:
-[Brief recap in 1-2 sentences]"""}
+[Brief recap in 1-2 sentences]
+
+CRITICAL FORMATTING RULE: The section LABELS — DEFINITION:, KEY CONCEPTS:, REAL-WORLD EXAMPLE:, SUMMARY: — MUST appear in ENGLISH exactly as shown, even when the lesson body is written in Hindi / Sanskrit / Urdu / Punjabi / Tamil / regional languages. Only the CONTENT under each label is translated. The frontend parses these English labels to render the lesson in sections; if you translate the labels (e.g. write 'परिभाषा:' instead of 'DEFINITION:'), the whole lesson renders as one unstructured paragraph."""}
     ]
     if history:
         messages.extend(history[-6:])
