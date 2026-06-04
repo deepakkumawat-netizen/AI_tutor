@@ -903,8 +903,11 @@ if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
+    """Serve the SPA's index.html on GET. HEAD is accepted (returns the same
+    response without a body) so Render's internal health checks stop logging
+    'HEAD / 405 Method Not Allowed' on every probe."""
     index_file = FRONTEND_DIST / "index.html"
     if index_file.exists():
         return FileResponse(index_file)
