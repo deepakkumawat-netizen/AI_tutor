@@ -1912,10 +1912,28 @@ function VideoPlayer({ profile }) {
                     if (activeIdx < filteredVideos.length - 1) setActiveIdx(i => i + 1);
                   }}
                 />
+                {/* YT branding mask — covers the bottom-right area where the
+                    YouTube pause-overlay injects 'More videos' + 'YouTube'
+                    buttons. Sandbox already makes the click a no-op; this
+                    just hides them visually so they don't tempt students.
+                    Sits ABOVE the iframe but BELOW our skip button.
+                    bottom:48 keeps clear of the progress bar at the very
+                    bottom; right:0 anchors to the corner. */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position:"absolute",
+                    bottom:48, right:0,
+                    width:240, height:54,
+                    background:"linear-gradient(to left, #000 60%, rgba(0,0,0,0))",
+                    pointerEvents:"auto",
+                    zIndex:2,
+                  }}
+                />
                 {/* Overlay skip button — shown if user sees unavailable error */}
                 <button
                   onClick={() => { if(activeIdx < filteredVideos.length-1) setActiveIdx(i=>i+1); }}
-                  style={{ position:"absolute", bottom:10, right:10, padding:"5px 12px", borderRadius:8, border:"none", background:"rgba(0,0,0,0.7)", color:"rgba(255,255,255,0.7)", fontFamily:FONT, fontWeight:700, fontSize:11, cursor:"pointer", backdropFilter:"blur(4px)" }}>
+                  style={{ position:"absolute", bottom:10, right:10, padding:"5px 12px", borderRadius:8, border:"none", background:"rgba(0,0,0,0.7)", color:"rgba(255,255,255,0.7)", fontFamily:FONT, fontWeight:700, fontSize:11, cursor:"pointer", backdropFilter:"blur(4px)", zIndex:3 }}>
                   ⏭ Skip unavailable
                 </button>
               </div>
@@ -4472,6 +4490,20 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
                     width:"100%",
                     height:"100%",
                     border:"none"
+                  }}
+                />
+                {/* YT branding mask — same as the inline player; covers the
+                    bottom-right pause-overlay area where YouTube injects
+                    'More videos' + 'YouTube' buttons. */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position:"absolute",
+                    bottom:48, right:0,
+                    width:240, height:54,
+                    background:"linear-gradient(to left, #000 60%, rgba(0,0,0,0))",
+                    pointerEvents:"auto",
+                    zIndex:2,
                   }}
                 />
               </div>
