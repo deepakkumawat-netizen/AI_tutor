@@ -1844,17 +1844,13 @@ function VideoPlayer({ profile }) {
     <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:"var(--bg-primary)" }}>
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16, padding:24 }}>
         <div style={{ fontSize:48 }}>🎬</div>
-        <div style={{ color:"var(--text-primary)", fontWeight:900, fontSize:17, textAlign:"center" }}>Search for "{profile.topic}" videos</div>
+        <div style={{ color:"var(--text-primary)", fontWeight:900, fontSize:17, textAlign:"center" }}>No videos available for "{profile.topic}"</div>
         <div style={{ color:"var(--text-secondary)", fontSize:13, textAlign:"center", maxWidth:380 }}>
-          Add your <strong style={{color:BLUE}}>YOUTUBE_API_KEY</strong> to your <code style={{background:"rgba(255,255,255,0.08)",padding:"2px 6px",borderRadius:4}}>.env</code> file to auto-load videos.<br/>
-          Or click below to search on YouTube directly:
+          We're loading lesson videos for this topic. Please wait a moment, then try again.
         </div>
-        <a
-          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(profile.topic + " " + profile.subjectLabel + " " + profile.grade + " lesson tutorial")}`}
-          target="_blank" rel="noopener noreferrer"
-          style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 28px", borderRadius:12, background:"#FF0000", color:"var(--text-primary)", fontFamily:FONT, fontWeight:900, fontSize:14, textDecoration:"none", boxShadow:"0 4px 20px rgba(255,0,0,0.35)" }}>
-          <span style={{fontSize:18}}>▶</span> Search on YouTube
-        </a>
+        {/* Note: the previous "Search on YouTube" button was removed —
+            students must stay inside the tutor and only watch
+            lesson-aligned videos curated by the backend. */}
         <button onClick={() => fetchVideos(query)} style={{ padding:"8px 20px", borderRadius:10, border:`1px solid ${BORDER}`, background:"var(--bg-tertiary)", color:"var(--text-primary)", fontFamily:FONT, fontWeight:700, fontSize:12, cursor:"pointer" }}>
           🔄 Try Again
         </button>
@@ -1894,12 +1890,18 @@ function VideoPlayer({ profile }) {
             <>
               {/* ── Embed — capped height so it never fills the whole screen ── */}
               <div style={{ position:"relative", width:"100%", maxHeight:"54vh", aspectRatio:"16/9", borderRadius:12, overflow:"hidden", background:"#000", marginBottom:8, boxShadow:"0 6px 30px rgba(0,0,0,0.7)", flexShrink:0 }}>
+                {/* Lesson-only video: youtube-nocookie.com (privacy mode) +
+                    rel=0 (no related videos), modestbranding=1 (no YT logo),
+                    iv_load_policy=3 (no annotations), disablekb=1 (no kbd
+                    shortcuts), fs=1 (still allow fullscreen for accessibility).
+                    Students cannot click through to YouTube from this player. */}
                 <iframe
                   key={activeVideo.id}
-                  src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=1&rel=0&modestbranding=1`}
+                  src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&playsinline=1&fs=1`}
                   title={activeVideo.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
                   style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:"none" }}
                   onError={() => {
                     // Skip unavailable video, try next
@@ -1921,10 +1923,8 @@ function VideoPlayer({ profile }) {
                   <span style={{ color:BLUE, fontWeight:700, fontSize:11 }}>📺 {activeVideo.channel}</span>
                   {activeVideo.duration && <span style={{ color:"rgba(255,255,255,0.35)", fontSize:11, fontWeight:600 }}>⏱ {activeVideo.duration}</span>}
                   <span style={{ color:"rgba(255,255,255,0.22)", fontSize:10.5 }}>{profile.grade} · {profile.subjectLabel}</span>
-                  <a href={`https://www.youtube.com/watch?v=${activeVideo.id}`} target="_blank" rel="noopener noreferrer"
-                    style={{ marginLeft:"auto", color:"rgba(255,255,255,0.3)", fontSize:10.5, fontWeight:700, textDecoration:"none" }}>
-                    ↗ YouTube
-                  </a>
+                  {/* "Open on YouTube" link removed — students must stay
+                      inside the tutor and only watch lesson-aligned videos. */}
                 </div>
               </div>
 
@@ -4456,10 +4456,11 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
                 position:"relative"
               }}>
                 <iframe
-                  src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1`}
+                  src={`https://www.youtube-nocookie.com/embed/${selectedVideo.id}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&playsinline=1&fs=1`}
                   title={selectedVideo.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
                   style={{
                     position:"absolute",
                     inset:0,
@@ -4486,23 +4487,8 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
                     {selectedVideo.description}
                   </p>
                 )}
-                <a
-                  href={`https://www.youtube.com/watch?v=${selectedVideo.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display:"inline-block",
-                    padding:"8px 16px",
-                    background:BLUE,
-                    color:"var(--text-primary)",
-                    borderRadius:"8px",
-                    textDecoration:"none",
-                    fontSize:"13px",
-                    fontWeight:"700"
-                  }}
-                >
-                  ↗ Open on YouTube
-                </a>
+                {/* "Open on YouTube" button removed — students must stay
+                    inside the tutor and only watch lesson-aligned videos. */}
               </div>
               {/* Close Button */}
               <button
