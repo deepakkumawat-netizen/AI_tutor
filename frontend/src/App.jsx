@@ -2794,10 +2794,22 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
   useEffect(() => {
     if (!profile.grade) { setCbseSubjects([]); return; }
     let cancelled = false;
-    fetch(`/api/curriculum?grade=${encodeURIComponent(profile.grade)}`)
+    // Use the absolute API constant (not relative path) — matches every
+    // other fetch in this file and avoids any base-path issues on Render.
+    fetch(`${API}/api/curriculum?grade=${encodeURIComponent(profile.grade)}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d && Array.isArray(d.subjects)) setCbseSubjects(d.subjects); })
-      .catch(() => { /* leave cbseSubjects empty; falls back to SUBJECTS_LIST */ });
+      .then(d => {
+        if (cancelled) return;
+        if (d && Array.isArray(d.subjects) && d.subjects.length > 0) {
+          setCbseSubjects(d.subjects);
+        } else {
+          console.warn("[CBSE] /api/curriculum returned no subjects for", profile.grade, d);
+        }
+      })
+      .catch(err => {
+        console.warn("[CBSE] /api/curriculum fetch failed for", profile.grade, err);
+        /* leave cbseSubjects empty; falls back to SUBJECTS_LIST */
+      });
     return () => { cancelled = true; };
   }, [profile.grade]);
 
@@ -2814,10 +2826,10 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
       return;
     }
     let cancelled = false;
-    fetch(`/api/curriculum?grade=${encodeURIComponent(profile.grade)}&subject=${encodeURIComponent(activeSubject)}`)
+    fetch(`${API}/api/curriculum?grade=${encodeURIComponent(profile.grade)}&subject=${encodeURIComponent(activeSubject)}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled && d && Array.isArray(d.chapters)) setCbseChapters(d.chapters); })
-      .catch(() => { /* silently fall back to the topic chips elsewhere */ });
+      .catch(err => { console.warn("[CBSE] chapter fetch failed:", err); });
     return () => { cancelled = true; };
   }, [profile.grade, activeSubject, isCustom]);
 
