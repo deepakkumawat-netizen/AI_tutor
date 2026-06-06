@@ -110,7 +110,22 @@ def _call_claude(messages, **kwargs):
         "messages": chat_msgs,
     }
     if system_parts:
-        params["system"] = "\n\n".join(system_parts)
+        # Anthropic prompt caching: when the system prompt is large and
+        # repeats (CBSE chapter grounding + language directive + grade-style
+        # block + format spec on every explain_topic call), wrap it in the
+        # structured array form with cache_control. Reads from cache cost
+        # ~10% of input tokens and are ~30-50% faster. The minimum cached
+        # block size is 1024 tokens for sonnet/opus and 2048 for haiku; our
+        # combined system prompt for a CBSE lesson easily clears that.
+        # Cache survives 5 minutes between requests (ephemeral TTL) — long
+        # enough that consecutive student requests in a session hit it.
+        params["system"] = [
+            {
+                "type": "text",
+                "text": "\n\n".join(system_parts),
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
     if "temperature" in kwargs:
         params["temperature"] = kwargs["temperature"]
 
