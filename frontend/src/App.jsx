@@ -3175,6 +3175,24 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null); // For modal video player
 
+  // Clear cached videoList whenever the lesson context changes. Without this,
+  // switching from (Grade 12, Accountancy) → (Grade 1, English) left the
+  // previous grade's Accounts videos visible in the Videos tab because the
+  // viewMode-enter handler only refetches when videoList is empty.
+  // After clearing, if the user is already on the Videos tab AND a topic
+  // is set, kick off a fresh fetch so they're not staring at a blank grid.
+  useEffect(() => {
+    setVideoList([]);
+    setSelectedVideo(null);
+    // Note: activeTopic + fetchVideosForTopic referenced here are declared
+    // later in this component; JavaScript hoisting + the React render cycle
+    // make them visible when this effect runs.
+    if (viewMode === "videos" && activeTopic) {
+      fetchVideosForTopic(activeTopic);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile.grade, profile.subject, profile.subjectLabel, profile.chapter, profile.topic]);
+
   // Grade helpers
   const isEarlyGrade = ["Grade 1","Grade 2","Grade 3"].includes(profile.grade);
   const topicListFallback = GRADE_TOPICS[activeSubject]?.[profile.grade] || [];
