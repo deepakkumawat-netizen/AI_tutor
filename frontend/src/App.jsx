@@ -2789,7 +2789,7 @@ function WelcomeHub({ profile }) {
 // removed Subject Switching Sidebar. Holds Grade + Subject pickers plus the
 // 5 section nav buttons. "Other Subject" reveals a typed/spoken custom
 // subject input that drives topic generation via /api/mcp/get-topics.
-function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome, topicList = [], activeTopic, setActiveTopic, topicsLoading = false }) {
+function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome, topicList = [], activeTopic, setActiveTopic, topicsLoading = false, chooseTopic }) {
   const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
   // Fallback subject list (used before a grade is picked or if /api/curriculum
   // ever fails). When a grade IS picked, we replace this with the actual CBSE
@@ -3079,9 +3079,18 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
           onChange={e => {
             const v = e.target.value;
             if (!v) return;
-            setActiveTopic?.(v);
+            // chooseTopic() in the parent SubjectPage does the full
+            // lesson-generation flow: sets activeTopic, kicks off the
+            // /api/mcp/explain-topic call, streams the DEFINITION/
+            // KEY CONCEPTS/EXAMPLE/SUMMARY sections into the message
+            // log. Calling it (instead of just setActiveTopic) is what
+            // actually generates the NCERT-grounded lesson — without
+            // this, the dropdown updated state but the lesson body
+            // stayed as the empty "Ready to learn… ask a question"
+            // placeholder.
             onUpdateProfile?.({ topic: v });
             setViewMode?.("lesson");
+            chooseTopic?.(v);
           }}
           disabled={!profile.chapter || topicsLoading || topicList.length === 0}
           style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor: (profile.chapter && !topicsLoading && topicList.length > 0) ? "pointer" : "not-allowed", fontFamily:"inherit", opacity: (profile.chapter && !topicsLoading && topicList.length > 0) ? 1 : 0.6 }}
@@ -3812,6 +3821,7 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         activeTopic={activeTopic}
         setActiveTopic={setActiveTopic}
         topicsLoading={topicsLoading}
+        chooseTopic={chooseTopic}
       />
       {/* Header - Colorful and engaging */}
       <div style={{
