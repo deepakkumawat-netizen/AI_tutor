@@ -2789,7 +2789,7 @@ function WelcomeHub({ profile }) {
 // removed Subject Switching Sidebar. Holds Grade + Subject pickers plus the
 // 5 section nav buttons. "Other Subject" reveals a typed/spoken custom
 // subject input that drives topic generation via /api/mcp/get-topics.
-function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome }) {
+function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSubject, onUpdateProfile, onHome, topicList = [], activeTopic, setActiveTopic, topicsLoading = false }) {
   const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
   // Fallback subject list (used before a grade is picked or if /api/curriculum
   // ever fails). When a grade IS picked, we replace this with the actual CBSE
@@ -3061,6 +3061,36 @@ function LessonRail({ profile, viewMode, setViewMode, activeSubject, setActiveSu
             <option key={(ch.ch || "") + ch.title} value={ch.title}>
               {ch.ch ? `${ch.ch}. ${ch.title}` : ch.title}
             </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Sub Topic dropdown — appears once the chapter is picked. Lists
+          the NCERT subtopics for that chapter (sourced from the chapter's
+          `concepts` field via /api/mcp/get-topics on the parent page).
+          Selecting a sub-topic loads the lesson immediately, replacing the
+          old chip-picker screen + "Change Topic" header button. */}
+      <div>
+        <label style={{ display:"block", fontSize:11, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:0.5, marginBottom:5 }}>
+          Sub Topic {profile.chapter && topicList.length > 0 && <span style={{ color: BLUE, fontWeight:600 }}>· CBSE</span>}
+        </label>
+        <select
+          value={activeTopic || ""}
+          onChange={e => {
+            const v = e.target.value;
+            if (!v) return;
+            setActiveTopic?.(v);
+            onUpdateProfile?.({ topic: v });
+            setViewMode?.("lesson");
+          }}
+          disabled={!profile.chapter || topicsLoading || topicList.length === 0}
+          style={{ width:"100%", padding:"7px 10px", fontSize:13, borderRadius:8, border:"1.5px solid var(--border-color)", background:"var(--bg-primary)", color:"var(--text-primary)", outline:"none", cursor: (profile.chapter && !topicsLoading && topicList.length > 0) ? "pointer" : "not-allowed", fontFamily:"inherit", opacity: (profile.chapter && !topicsLoading && topicList.length > 0) ? 1 : 0.6 }}
+        >
+          <option value="">
+            {!profile.chapter ? "Pick a chapter first" : topicsLoading ? "Loading sub-topics…" : topicList.length === 0 ? "No sub-topics yet" : "Select sub-topic…"}
+          </option>
+          {topicList.map((t, i) => (
+            <option key={`${i}-${t}`} value={t}>{t}</option>
           ))}
         </select>
       </div>
@@ -3778,6 +3808,10 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         setActiveSubject={setActiveSubject}
         onUpdateProfile={onUpdateProfile}
         onHome={onHome}
+        topicList={topicList}
+        activeTopic={activeTopic}
+        setActiveTopic={setActiveTopic}
+        topicsLoading={topicsLoading}
       />
       {/* Header - Colorful and engaging */}
       <div style={{
@@ -4054,8 +4088,27 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
         <WelcomeHub profile={profile} />
       )}
 
-      {/* Professional Search Bar for Topics — only when subject + grade picked */}
+      {/* Sub-topic chip page replaced by the Sub Topic dropdown in the
+          LessonRail sidebar. When grade + subject are picked but no topic
+          selected yet, show a clean "pick from sidebar" placeholder so the
+          screen isn't blank but also doesn't duplicate the dropdown's job. */}
       {!activeTopic && profile.grade && activeSubject && (activeSubject !== "custom" || profile.subjectLabel) && (
+        <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--text-secondary)" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>👈</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
+            Pick a Sub Topic from the sidebar
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.85, maxWidth: 360, margin: "0 auto" }}>
+            {profile.chapter
+              ? `Choose any sub-topic from "${profile.chapter}" in the Sub Topic dropdown to start your lesson.`
+              : "First pick a Chapter, then a Sub Topic, and your AI Tutor will start explaining."}
+          </div>
+        </div>
+      )}
+
+      {/* OLD: Professional Search Bar + topic chip grid — kept for fallback
+          when CBSE chapter isn't set (custom subject / non-CBSE flow). */}
+      {false && !activeTopic && profile.grade && activeSubject && (activeSubject !== "custom" || profile.subjectLabel) && (
         <div style={{
           padding:"20px",
           borderBottom:"2px solid rgba(57,154,255,0.2)"
@@ -4341,13 +4394,8 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
       {/* "Pick a topic to start learning" duplicate prompt removed —
           WelcomeHub covers the pre-flight case, and once grade + subject
           are picked the topic chips above are self-explanatory. */}
-      {!activeTopic && !topicsLoading && profile.grade && activeSubject && (activeSubject !== "custom" || profile.subjectLabel) && topicList.length > 0 && (
-        <div style={{ padding:"16px 20px 24px", textAlign:"center" }}>
-          <div style={{ fontSize:"13px", color:"var(--text-secondary)" }}>
-            👆 Click any topic above to start your lesson.
-          </div>
-        </div>
-      )}
+      {/* "Click any topic above" prompt removed — the chip page is gone,
+          replaced by the Sub Topic dropdown in the LessonRail sidebar. */}
 
       {/* Active Topic Header with View Toggle */}
       {activeTopic && (
@@ -4369,26 +4417,10 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
           </div>
 
           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
-            {/* View toggle chips removed — navigation now lives in the left rail (LessonRail). */}
-
-            {/* Change Topic Button */}
-            <button
-              onClick={() => { setActiveTopic(null); setShowTopicMenu(true); setMessages([]); setViewMode("lesson"); }}
-              style={{
-                padding:"8px 14px",
-                background:"var(--bg-tertiary)",
-                border:`2px solid ${BLUE}`,
-                borderRadius:"8px",
-                cursor:"pointer",
-                color:BLUE,
-                fontWeight:"600",
-                fontSize:"13px"
-              }}
-            >
-              Change Topic
-            </button>
-
-            {/* Theme Toggle Button */}
+            {/* Change Topic button removed — topic selection now lives in
+                the left rail's Sub Topic dropdown, right under Chapter.
+                Keeps the lesson header uncluttered and gives one consistent
+                place for all navigation. */}
             <ThemeToggle />
           </div>
         </div>
