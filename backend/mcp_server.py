@@ -317,10 +317,19 @@ CRITICAL FORMATTING RULE: The section LABELS — DEFINITION:, KEY CONCEPTS:, REA
             messages.extend(history[-6:])
         messages.append({"role": "user", "content": f"Explain '{topic}' for {grade} students learning {subject}."})
 
+        # When the topic is a known CBSE chapter (cbse_block populated above
+        # OR the caller passed a chapter explicitly), route to Gemini first.
+        # Empirically Gemini Flash has substantial NCERT content memorized —
+        # specifically the chapter titles, authors, and plot details of
+        # popular CBSE chapters — so it produces more accurate lessons than
+        # Groq's Llama for school content. Falls back to Groq → Claude on
+        # error.
+        prefer_gemini = bool(cbse_block) or bool(chapter)
         response = chat_with_fallback(
             messages=messages,
             max_tokens=600,
-            temperature=0.7
+            temperature=0.7,
+            prefer_gemini=prefer_gemini,
         )
 
         content = response.choices[0].message.content
@@ -526,9 +535,11 @@ def practice_question(subject: str, grade: str) -> dict:
     # Practice questions don't get a single `topic`; ground on the broader
     # subject syllabus by listing all chapter titles for this grade+subject.
     cbse_ctx = ""
+    cbse_grounded = False
     if _CBSE_AVAILABLE:
         chapters = _cbse_kb.get_chapters(grade, subject)
         if chapters:
+            cbse_grounded = True
             titles = [ch.get("title", "") for ch in chapters if ch.get("title")]
             cbse_ctx = (
                 f"\n\nCBSE NCERT {grade} {subject} chapters: {', '.join(titles)}.\n"
@@ -536,6 +547,7 @@ def practice_question(subject: str, grade: str) -> dict:
             )
     try:
         response = chat_with_fallback(
+            prefer_gemini=cbse_grounded,  # Gemini has better NCERT memorization → use for CBSE practice questions
             messages=[
                 {"role": "system", "content": f"Generate a practice question for {grade} students learning {subject}.{cbse_ctx}"},
                 {"role": "user", "content": f"Create a practice question for {subject} at {grade} level with answer."}

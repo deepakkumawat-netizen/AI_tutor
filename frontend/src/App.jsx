@@ -1759,7 +1759,7 @@ function drawSubtitleV(ctx, w, h, text, prog) {
 
 
 // ─── Language Narration Panel ─────────────────────────────────────────────────
-// Generates a topic explanation via Claude API, shows scrolling subtitles,
+// Generates a topic explanation via the LLM fallback chain (Gemini → Groq → Claude), shows scrolling subtitles,
 // and reads it aloud using Bhashini (Web Speech API) in the chosen language.
 // ─── YouTube VideoPlayer ──────────────────────────────────────────────────────
 // Searches YouTube for real educational videos matching the topic + grade,

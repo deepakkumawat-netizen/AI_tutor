@@ -20,7 +20,6 @@ is identical (`resp.choices[0].message.content`).
 """
 
 import os
-import requests
 from openai import OpenAI
 
 _GROQ_KEY   = (os.getenv("GROQ_API_KEY")      or "").strip()
@@ -32,7 +31,6 @@ GROQ_FALLBACK_MODELS = [GROQ_PRIMARY, "llama-3.1-8b-instant", "gemma2-9b-it"]
 
 CLAUDE_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
-GEMINI_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 _groq = OpenAI(api_key=_GROQ_KEY or "missing", base_url="https://api.groq.com/openai/v1") if _GROQ_KEY else None
 
@@ -44,7 +42,17 @@ if _ANTHRO_KEY:
     except ImportError:
         _anthropic = None
 
-_gemini_ready = bool(_GEMINI_KEY)
+# Official Google GenAI SDK (replaces raw-requests path used during the
+# initial spike). Same SDK that unlocks multimodal / function-calling /
+# Files API / streaming when we want them later.
+_gemini = None
+if _GEMINI_KEY:
+    try:
+        from google import genai as _genai
+        _gemini = _genai.Client(api_key=_GEMINI_KEY)
+    except ImportError:
+        _gemini = None
+_gemini_ready = _gemini is not None
 
 
 def _is_rate_limit(err: Exception) -> bool:
@@ -117,20 +125,21 @@ class _GeminiResponse:
 
 
 def _call_gemini(messages, **kwargs):
-    """Call Gemini via raw HTTP (no SDK dependency — uses the same
-    endpoint shape the user verified with curl):
-        POST /v1beta/models/{model}:generateContent
-        X-goog-api-key: <key>
-        body: { contents: [{parts: [{text: ...}], role}], systemInstruction, generationConfig }
+    """Call Gemini via the official google-genai SDK.
 
-    Converts OpenAI-style messages (system/user/assistant) to Gemini's
-    contents+systemInstruction format. Returns an OpenAI-shaped object so
-    callers don't need to know Gemini answered."""
+    Converts OpenAI-style messages (system / user / assistant) to Gemini's
+    contents + system_instruction format. Roles in Gemini: 'user' and
+    'model' (assistant becomes model). Returns an OpenAI-shaped object
+    so callers don't need to know Gemini answered.
+
+    Using the SDK (not raw HTTP) so future upgrades — multimodal images,
+    Files API for NCERT PDFs, function calling, search grounding —
+    require minimal code change."""
     if not _gemini_ready:
-        raise RuntimeError("Gemini not configured — set GEMINI_API_KEY in env")
+        raise RuntimeError("Gemini not configured — set GEMINI_API_KEY or install `google-genai`")
 
-    # Gemini uses a separate `systemInstruction` field; conversational
-    # turns go in `contents`. Roles in Gemini: 'user' and 'model'.
+    from google.genai import types as _gtypes
+
     system_parts = [m["content"] for m in messages if m.get("role") == "system"]
     contents = []
     for m in messages:
@@ -146,35 +155,22 @@ def _call_gemini(messages, **kwargs):
     if not contents:
         contents = [{"role": "user", "parts": [{"text": "Hello"}]}]
 
-    gen_cfg = {}
-    if "temperature" in kwargs:
-        gen_cfg["temperature"] = kwargs["temperature"]
-    if "max_tokens" in kwargs or "max_completion_tokens" in kwargs:
-        gen_cfg["maxOutputTokens"] = kwargs.get("max_tokens") or kwargs.get("max_completion_tokens") or 2048
-
-    body = {"contents": contents}
+    cfg_args = {}
     if system_parts:
-        body["systemInstruction"] = {"parts": [{"text": "\n\n".join(system_parts)}]}
-    if gen_cfg:
-        body["generationConfig"] = gen_cfg
+        cfg_args["system_instruction"] = "\n\n".join(system_parts)
+    if "temperature" in kwargs:
+        cfg_args["temperature"] = kwargs["temperature"]
+    if "max_tokens" in kwargs or "max_completion_tokens" in kwargs:
+        cfg_args["max_output_tokens"] = kwargs.get("max_tokens") or kwargs.get("max_completion_tokens") or 2048
 
-    resp = requests.post(
-        GEMINI_ENDPOINT,
-        headers={"Content-Type": "application/json", "X-goog-api-key": _GEMINI_KEY},
-        json=body,
-        timeout=60,
+    config = _gtypes.GenerateContentConfig(**cfg_args) if cfg_args else None
+
+    resp = _gemini.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=contents,
+        config=config,
     )
-    if resp.status_code != 200:
-        # Surface the API's actual message so the permanent-failure detector
-        # can recognize 'API key not valid' / 'billing' / etc.
-        raise RuntimeError(f"Gemini API {resp.status_code}: {resp.text[:500]}")
-
-    data = resp.json()
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise RuntimeError(f"Gemini returned no candidates: {data}")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    text = "".join(p.get("text", "") for p in parts)
+    text = resp.text or ""
     return _GeminiResponse(text, GEMINI_MODEL)
 
 
@@ -225,29 +221,50 @@ def _call_claude(messages, **kwargs):
     return _ClaudeResponse(text, CLAUDE_MODEL)
 
 
-def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
+def chat_with_fallback(messages, prefer_anthropic: bool = True, prefer_gemini: bool = False, **kwargs):
     """Run a chat completion, falling back across providers on rate-limit errors.
 
     Strips any model kwarg the caller passed — this helper chooses the model.
     Non-rate-limit errors propagate immediately so real bugs surface.
 
-    Default is prefer_anthropic=True: Claude Haiku 4.5 is tried FIRST since
-    the Groq free tier's daily quotas (100K tokens/model) are tight enough
-    that students see 429s in normal use. Claude is paid and uncapped at our
-    usage level, so it's both faster (no quota stalls) and steadier. If
-    Claude is unreachable or no key is set, the call drops through to the
-    Groq chain so the tool keeps working as a free-tier fallback.
+    Provider selection:
+      prefer_gemini=True  → Gemini → Groq → Claude
+          For CBSE/NCERT-aligned lessons. Empirically Gemini Flash has
+          substantial NCERT content memorized (correct chapter titles,
+          authors, and plot details for popular chapters — verified on
+          Class 5 Hindi 'चतुर चित्रकार', Class 8 History 'How, When and
+          Where', etc.). When the caller knows the topic is a CBSE
+          chapter, use this flag to prioritize accuracy.
 
-    Pass prefer_anthropic=False explicitly for any low-stakes background
-    call where the cost difference matters more than latency.
+      prefer_anthropic=True (default) → Claude → Groq → Gemini
+          For generic / custom / non-CBSE topics where Claude's quality +
+          prompt-cached repeat calls win.
+
+      Both False → Groq → Claude → Gemini (free-tier first)
+
+    prefer_gemini takes precedence over prefer_anthropic if both are True.
     """
     kwargs.pop("model", None)
-    global _claude_disabled_reason
+    global _claude_disabled_reason, _gemini_disabled_reason
 
     last_err = None
     claude_ready = _anthropic is not None and _claude_disabled_reason is None
+    gemini_ready = _gemini_ready and _gemini_disabled_reason is None
 
-    if prefer_anthropic and claude_ready:
+    # ── Tier 1: Gemini-first path for CBSE/NCERT content ─────────────────
+    if prefer_gemini and gemini_ready:
+        try:
+            return _call_gemini(messages, **kwargs)
+        except Exception as e:
+            last_err = e
+            if _is_gemini_permanent_failure(e):
+                _gemini_disabled_reason = str(e).splitlines()[0][:200]
+                print(f"[llm] Gemini disabled for this process — {_gemini_disabled_reason}. Future requests skip Gemini.")
+            else:
+                print(f"[llm] Gemini (preferred for CBSE) failed: {e} — falling through to Groq")
+
+    # ── Tier 2: Claude-first path for generic content ────────────────────
+    if not prefer_gemini and prefer_anthropic and claude_ready:
         try:
             return _call_claude(messages, **kwargs)
         except Exception as e:
@@ -258,6 +275,7 @@ def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
             else:
                 print(f"[llm] Claude (preferred) failed: {e} — falling through to Groq")
 
+    # ── Tier 3: Groq (free tier) — common middle fallback ────────────────
     if _groq is not None:
         for model in GROQ_FALLBACK_MODELS:
             try:
@@ -268,7 +286,11 @@ def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
                 last_err = e
                 print(f"[llm] Groq {model} rate-limited, trying next…")
 
-    if not prefer_anthropic and claude_ready:
+    # ── Tier 4: Whichever paid provider wasn't tried first ───────────────
+    # If prefer_gemini was on, try Claude here. If prefer_anthropic was on
+    # (or neither), try Gemini here. Either way the request gets a final
+    # paid safety-net before raising.
+    if prefer_gemini and claude_ready:
         try:
             print(f"[llm] All Groq models exhausted — falling back to Claude {CLAUDE_MODEL}")
             return _call_claude(messages, **kwargs)
@@ -279,13 +301,7 @@ def chat_with_fallback(messages, prefer_anthropic: bool = True, **kwargs):
                 print(f"[llm] Claude disabled for this process — {_claude_disabled_reason}")
             else:
                 print(f"[llm] Claude fallback failed: {e}")
-
-    # Final safety net: Gemini. Only reached when both Claude and every
-    # Groq model failed (rate-limited or unreachable). Cheapest of the
-    # paid options so it's the last resort, not the first.
-    global _gemini_disabled_reason
-    gemini_ready = _gemini_ready and _gemini_disabled_reason is None
-    if gemini_ready:
+    elif gemini_ready:
         try:
             print(f"[llm] All other providers exhausted — falling back to Gemini {GEMINI_MODEL}")
             return _call_gemini(messages, **kwargs)
