@@ -5135,6 +5135,40 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
             onBlur={(e) => e.target.style.borderColor = BORDER}
           />
 
+          {/* Clear Chat — wipes student questions + bot replies but keeps
+              the original lesson (messages[0]) visible so students don't
+              have to re-pick the sub-topic. Confirms on click to avoid
+              accidental clears. */}
+          <button
+            onClick={() => {
+              if (messages.length <= 1) return; // nothing to clear
+              if (!window.confirm("Clear your chat with the AI Tutor? The lesson will stay visible.")) return;
+              // Keep just the first message (the lesson itself); drop all
+              // subsequent Q&A turns.
+              setMessages(prev => prev.length > 0 ? [prev[0]] : []);
+            }}
+            disabled={loading || messages.length <= 1}
+            title="Clear chat (keeps the lesson)"
+            style={{
+              padding:"10px 14px",
+              background:"var(--bg-tertiary)",
+              color:"var(--text-primary)",
+              border:`2px solid ${BORDER}`,
+              borderRadius:"10px",
+              cursor: (loading || messages.length <= 1) ? "not-allowed" : "pointer",
+              fontSize:"16px",
+              fontWeight:"600",
+              minWidth:"44px",
+              height:"44px",
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              opacity: (loading || messages.length <= 1) ? 0.4 : 1,
+            }}
+          >
+            🧹
+          </button>
+
           {/* Photo upload — hidden file input + visible camera button. */}
           <input
             type="file"
