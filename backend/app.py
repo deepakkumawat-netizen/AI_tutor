@@ -425,6 +425,69 @@ async def api_explain_photo(request: ExplainPhotoRequest):
     if len(image_bytes) > 5_000_000:  # 5 MB ceiling
         return {"error": "Image too large", "answer": "Photo is too large. Please use a smaller image (under 5 MB)."}
 
+    # ── Content moderation ───────────────────────────────────────────────
+    # Students may try to upload NSFW, violent, or personal photos.
+    # Do a fast classify pass using Gemini before the expensive lesson
+    # call. If the image isn't study material, refuse politely and DO NOT
+    # forward it to the main solve prompt. Uses thinking_budget=0 + a
+    # tiny token budget so the gate adds only ~1s of latency.
+    try:
+        from google import genai as _gn
+        from google.genai import types as _gt
+        _gc = _gn.Client(api_key=gemini_key)
+        gate = _gc.models.generate_content(
+            model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+            contents=[
+                _gt.Part.from_bytes(data=image_bytes, mime_type=request.image_mime or "image/jpeg"),
+                "Classify this image. Reply with ONE word only — STUDY (textbook page, math/science problem, worksheet, "
+                "diagram, classroom material, screenshot of educational software, child-safe educational content), or "
+                "NOT_STUDY (selfie, person, animal, food, scenery, meme, social media, video game, anything not related "
+                "to school study). Reply STUDY or NOT_STUDY.",
+            ],
+            config=_gt.GenerateContentConfig(
+                temperature=0.0,
+                max_output_tokens=20,
+                thinking_config=_gt.ThinkingConfig(thinking_budget=0),
+                # Strong safety filters — Gemini will refuse adult/violent
+                # content automatically; this just makes the threshold
+                # stricter so anything borderline gets blocked too.
+                safety_settings=[
+                    _gt.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_LOW_AND_ABOVE"),
+                    _gt.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH",         threshold="BLOCK_LOW_AND_ABOVE"),
+                    _gt.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT",   threshold="BLOCK_LOW_AND_ABOVE"),
+                    _gt.SafetySetting(category="HARM_CATEGORY_HARASSMENT",          threshold="BLOCK_LOW_AND_ABOVE"),
+                ],
+            ),
+        )
+        verdict = (gate.text or "").strip().upper()
+        # Reject if Gemini's own safety system blocked OR our classifier says not study
+        if "NOT_STUDY" in verdict or "STUDY" not in verdict:
+            print(f"[explain-photo] Image rejected — verdict='{verdict}'")
+            return {
+                "error": "non_study_image",
+                "answer": (
+                    "📚 This photo doesn't look like study material. "
+                    "Please upload a photo of your textbook, worksheet, math problem, or another school-related image. "
+                    "Photos of people, food, games, or other non-study content can't be processed by the AI Tutor."
+                ),
+            }
+    except Exception as e:
+        # If the moderation call itself fails (safety_blocked / network), refuse
+        # rather than risk forwarding unsafe content. Better-safe-than-sorry default.
+        err_msg = str(e).lower()
+        if "safety" in err_msg or "blocked" in err_msg or "harm" in err_msg:
+            return {
+                "error": "blocked_by_safety_filter",
+                "answer": (
+                    "🚫 This photo was blocked by our safety filter. "
+                    "AI Tutor only accepts study-related photos — textbooks, worksheets, problems, and diagrams. "
+                    "Please pick a different image."
+                ),
+            }
+        # Other errors: log and proceed cautiously — but only if the main
+        # safety filters didn't reject the image content itself.
+        print(f"[explain-photo] Moderation pre-check failed: {e} — proceeding to main call which has its own safety filters")
+
     # Grade-aware system instruction so the explanation matches the student
     grade_num = int("".join(c for c in (request.grade or "") if c.isdigit()) or 6)
     if grade_num <= 3:
@@ -463,8 +526,18 @@ async def api_explain_photo(request: ExplainPhotoRequest):
             config=gtypes.GenerateContentConfig(
                 system_instruction=system_prompt,
                 temperature=0.4,
-                max_output_tokens=1500,
+                # Bumped from 1500 — was truncating mid-word on verbose
+                # responses (response cut off at 'STEP-BY-STEP: 1. **Lo...').
+                max_output_tokens=2500,
                 thinking_config=gtypes.ThinkingConfig(thinking_budget=0),
+                # Safety filters on the answer call too — defence in depth
+                # alongside the upstream STUDY/NOT_STUDY gate.
+                safety_settings=[
+                    gtypes.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_LOW_AND_ABOVE"),
+                    gtypes.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH",         threshold="BLOCK_LOW_AND_ABOVE"),
+                    gtypes.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT",   threshold="BLOCK_LOW_AND_ABOVE"),
+                    gtypes.SafetySetting(category="HARM_CATEGORY_HARASSMENT",          threshold="BLOCK_LOW_AND_ABOVE"),
+                ],
             ),
         )
         answer = resp.text or ""
