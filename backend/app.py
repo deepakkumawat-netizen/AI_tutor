@@ -221,6 +221,19 @@ class ExplainTopicRequest(BaseModel):
     history: list = []
     chapter: Optional[str] = None  # parent CBSE chapter (e.g. 'Chapter 2. Human Reproduction') so the lesson stays scoped to that chapter even when topic is a subtopic
 
+class ExplainPhotoRequest(BaseModel):
+    """Student uploads a photo of a problem (math, science, worksheet, etc.)
+    and asks a question about it. Image arrives as a base64-encoded string
+    to keep the JSON shape consistent with other endpoints (no multipart
+    branch in the frontend code)."""
+    image_base64: str               # raw base64 string OR data URL ('data:image/jpeg;base64,...')
+    image_mime: str = "image/jpeg"  # 'image/jpeg' | 'image/png' | 'image/webp'
+    question: str = "Solve this for me step-by-step."
+    grade: str = "Grade 6"
+    subject: Optional[str] = None
+    chapter: Optional[str] = None
+    history: list = []
+
 class PracticeQuestionRequest(BaseModel):
     subject: str
     grade: str
@@ -379,6 +392,92 @@ async def api_explain_topic(request: ExplainTopicRequest):
     print(f"[RETURN] Keys being returned: {list(return_obj.keys())}")
     print(f"[RETURN] Sections type: {type(return_obj['sections'])}, len: {len(return_obj.get('sections', {}))}")
     return return_obj
+
+@app.post("/api/mcp/explain-photo")
+async def api_explain_photo(request: ExplainPhotoRequest):
+    """Multimodal vision endpoint: student uploads a photo of a problem
+    (math problem, worksheet, science diagram, etc.) and asks a question
+    about it. Routed through Gemini Flash (the only provider in our chain
+    with native vision). Returns a structured response the chat UI can
+    render as a regular bot message.
+
+    Image arrives as base64; we strip any 'data:image/...;base64,' prefix
+    the frontend may have included from FileReader.readAsDataURL()."""
+    import base64
+    import os
+    from google import genai
+    from google.genai import types as gtypes
+
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not gemini_key:
+        return {"error": "GEMINI_API_KEY not configured", "answer": "Photo solving is not configured. Please contact support."}
+
+    # Strip data-URL prefix if present (frontend FileReader.readAsDataURL
+    # produces 'data:image/jpeg;base64,...').
+    b64 = request.image_base64
+    if "," in b64 and b64.startswith("data:"):
+        b64 = b64.split(",", 1)[1]
+    try:
+        image_bytes = base64.b64decode(b64, validate=False)
+    except Exception as e:
+        return {"error": f"Invalid base64 image: {e}", "answer": "Could not decode the photo. Try uploading again."}
+
+    if len(image_bytes) > 5_000_000:  # 5 MB ceiling
+        return {"error": "Image too large", "answer": "Photo is too large. Please use a smaller image (under 5 MB)."}
+
+    # Grade-aware system instruction so the explanation matches the student
+    grade_num = int("".join(c for c in (request.grade or "") if c.isdigit()) or 6)
+    if grade_num <= 3:
+        style = "Use VERY simple words, short sentences, and a friendly tone. Maximum 150 words."
+    elif grade_num <= 6:
+        style = "Use clear age-appropriate language with fun examples. 200-300 words."
+    elif grade_num <= 9:
+        style = "Use slightly technical language with detailed steps. 300-500 words."
+    else:
+        style = "Use academic language with rigorous step-by-step working. 500-700 words."
+
+    subject_hint = f" in {request.subject}" if request.subject else ""
+    chapter_hint = f" (related to NCERT chapter '{request.chapter}')" if request.chapter else ""
+
+    system_prompt = (
+        f"You are a CBSE/NCERT tutor for {request.grade} students{subject_hint}{chapter_hint}. "
+        f"The student has uploaded a photo of a problem they are working on. "
+        f"{style} "
+        "Format your reply EXACTLY as:\n"
+        "WHAT I SEE:\n[1-2 lines describing what's in the photo]\n\n"
+        "ANSWER:\n[the direct answer or solution]\n\n"
+        "STEP-BY-STEP:\n[numbered steps a student can follow]\n\n"
+        "WHY THIS WORKS:\n[the underlying concept in 1-2 lines]\n\n"
+        "Keep the section LABELS in English even if the body language matches the subject (Hindi/Sanskrit/Urdu/regional)."
+    )
+
+    try:
+        client = genai.Client(api_key=gemini_key)
+        # Build a multimodal message: image part + question part
+        image_part = gtypes.Part.from_bytes(data=image_bytes, mime_type=request.image_mime or "image/jpeg")
+        text_part = request.question or "Solve this for me step-by-step."
+
+        resp = client.models.generate_content(
+            model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+            contents=[image_part, text_part],
+            config=gtypes.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.4,
+                max_output_tokens=1500,
+                thinking_config=gtypes.ThinkingConfig(thinking_budget=0),
+            ),
+        )
+        answer = resp.text or ""
+        return {
+            "answer": answer,
+            "grade": request.grade,
+            "subject": request.subject,
+            "model": "gemini-flash-latest",
+        }
+    except Exception as e:
+        print(f"[ERROR] explain-photo: {e}")
+        return {"error": str(e), "answer": "Sorry, I couldn't read the photo just now. Please try again in a moment."}
+
 
 @app.post("/api/mcp/explain-topic-stream")
 async def api_explain_topic_stream(request: ExplainTopicRequest):

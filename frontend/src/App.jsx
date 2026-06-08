@@ -3698,6 +3698,52 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
   };
 
   // Send text message (from input or voice)
+  // Photo → solve. Reads the picked file as base64 and posts to
+  // /api/mcp/explain-photo. The response renders as a regular bot message
+  // in the chat thread so existing scroll, history, and styling all work
+  // unchanged. The user-side message shows a small image preview so the
+  // teacher/student can see what was sent.
+  const sendPhoto = async (file) => {
+    if (!file) return;
+    if (file.size > 5_000_000) {
+      setMessages(m => [...m, { role:"bot", content: "📷 That image is too large — please pick one under 5 MB." }]);
+      return;
+    }
+    setLoading(true);
+    // Read file as data URL → base64
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    // Show the photo + the question (or default) as a user bubble
+    const question = input.trim() || "Solve this for me step-by-step.";
+    setInput("");
+    setMessages(m => [...m, { role:"user", content: question, photo: dataUrl }]);
+    try {
+      const res = await fetch(`${API}/api/mcp/explain-photo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_base64: dataUrl,
+          image_mime: file.type || "image/jpeg",
+          question,
+          grade: profile.grade,
+          subject: activeSubject,
+          chapter: profile.chapter || null,
+        }),
+      });
+      const data = await res.json();
+      const answer = data?.answer || "Sorry, I couldn't read the photo. Try again.";
+      setMessages(m => [...m, { role:"bot", content: answer }]);
+    } catch (e) {
+      setMessages(m => [...m, { role:"bot", content: "📷 Couldn't reach the photo solver. Please check your connection and retry." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sendText = (text) => {
     if (!text.trim()) return;
     setInput("");
@@ -4827,7 +4873,8 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
             }}
           >
             {msg.role === "user" ? (
-              // User message - simple bubble
+              // User message - simple bubble (with optional photo preview
+              // when the user uploaded an image via the camera button).
               <div
                 style={{
                   maxWidth:"80%",
@@ -4842,6 +4889,19 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
                   wordWrap:"break-word"
                 }}
               >
+                {msg.photo && (
+                  <img
+                    src={msg.photo}
+                    alt="Uploaded problem"
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: 240,
+                      borderRadius: 12,
+                      marginBottom: 8,
+                      display: "block",
+                    }}
+                  />
+                )}
                 {msg.content}
               </div>
             ) : (
@@ -5032,6 +5092,43 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
             onFocus={(e) => e.target.style.borderColor = BLUE}
             onBlur={(e) => e.target.style.borderColor = BORDER}
           />
+
+          {/* Photo upload — hidden file input + visible camera button. */}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            id="photo-upload-input"
+            onChange={(e) => {
+              const f = e.target.files && e.target.files[0];
+              if (f) sendPhoto(f);
+              e.target.value = ""; // allow re-selecting the same file later
+            }}
+          />
+          <button
+            onClick={() => document.getElementById("photo-upload-input")?.click()}
+            disabled={loading}
+            title="Upload a photo of the problem (or take one with your camera)"
+            style={{
+              padding:"10px 14px",
+              background:"var(--bg-tertiary)",
+              color:"var(--text-primary)",
+              border:`2px solid ${BORDER}`,
+              borderRadius:"10px",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontSize:"18px",
+              fontWeight:"600",
+              minWidth:"44px",
+              height:"44px",
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              opacity: loading ? 0.5 : 1,
+            }}
+          >
+            📷
+          </button>
 
           {/* Voice Input Button for Questions */}
           <button
