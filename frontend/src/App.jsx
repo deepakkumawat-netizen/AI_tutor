@@ -4928,9 +4928,54 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
             style={{
               display:"flex",
               justifyContent:msg.role === "user" ? "flex-end" : "flex-start",
-              animation:`fadeUp 0.3s ease`
+              animation:`fadeUp 0.3s ease`,
+              position:"relative",
+              gap:"6px",
+              alignItems:"flex-start",
             }}
           >
+            {/* Per-message delete — small ✕ button on every message
+                EXCEPT the first one (the lesson at index 0, which should
+                stay anchored so students don't accidentally lose the
+                lesson they're studying). Hover-visible on desktop; always
+                visible on touch. Single click, no confirmation popup. */}
+            {i > 0 && !msg.streaming && (
+              <button
+                onClick={() => setMessages(prev => prev.filter((_, idx) => idx !== i))}
+                title="Remove this message"
+                aria-label="Remove this message"
+                style={{
+                  order: msg.role === "user" ? 1 : 0,
+                  alignSelf:"center",
+                  width:24, height:24,
+                  borderRadius:"50%",
+                  border:"none",
+                  background:"rgba(255,255,255,0.08)",
+                  color:"var(--text-secondary)",
+                  cursor:"pointer",
+                  fontSize:14,
+                  fontWeight:700,
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  opacity: 0.6,
+                  flexShrink: 0,
+                  transition:"opacity 0.15s, background 0.15s, color 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                  e.currentTarget.style.background = "rgba(239,68,68,0.18)";
+                  e.currentTarget.style.color = "#ef4444";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "0.6";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                  e.currentTarget.style.color = "var(--text-secondary)";
+                }}
+              >
+                ✕
+              </button>
+            )}
             {msg.role === "user" ? (
               // User message - simple bubble (with optional photo preview
               // when the user uploaded an image via the camera button).
@@ -5152,39 +5197,9 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
             onBlur={(e) => e.target.style.borderColor = BORDER}
           />
 
-          {/* Clear Chat — wipes student questions + bot replies but keeps
-              the original lesson (messages[0]) visible so students don't
-              have to re-pick the sub-topic. Confirms on click to avoid
-              accidental clears. */}
-          <button
-            onClick={() => {
-              if (messages.length <= 1) return; // nothing to clear
-              if (!window.confirm("Clear your chat with the AI Tutor? The lesson will stay visible.")) return;
-              // Keep just the first message (the lesson itself); drop all
-              // subsequent Q&A turns.
-              setMessages(prev => prev.length > 0 ? [prev[0]] : []);
-            }}
-            disabled={loading || messages.length <= 1}
-            title="Clear chat (keeps the lesson)"
-            style={{
-              padding:"10px 14px",
-              background:"var(--bg-tertiary)",
-              color:"var(--text-primary)",
-              border:`2px solid ${BORDER}`,
-              borderRadius:"10px",
-              cursor: (loading || messages.length <= 1) ? "not-allowed" : "pointer",
-              fontSize:"16px",
-              fontWeight:"600",
-              minWidth:"44px",
-              height:"44px",
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center",
-              opacity: (loading || messages.length <= 1) ? 0.4 : 1,
-            }}
-          >
-            🧹
-          </button>
+          {/* Clear Chat button removed — replaced by per-message delete
+              buttons (✕) on each chat bubble, so students can drop just
+              the content they don't want without a confirmation popup. */}
 
           {/* Photo upload — hidden file input + visible camera button. */}
           <input
