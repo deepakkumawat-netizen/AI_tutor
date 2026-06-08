@@ -1353,20 +1353,32 @@ const parseSections = (content) => {
 
   const sections = {};
 
-  // Try to find DEFINITION section
-  const defMatch = content.match(/DEFINITION:\s*([\s\S]*?)(?=KEY CONCEPTS:|KEY IDEAS:|KEY POINTS:|REAL-WORLD EXAMPLE:|EXAMPLE:|SUMMARY:|REMEMBER THIS:|$)/i);
+  // Lesson labels (DEFINITION / KEY CONCEPTS / REAL-WORLD EXAMPLE / SUMMARY)
+  // + Photo-solve labels (WHAT I SEE / ANSWER / STEP-BY-STEP / WHY THIS WORKS)
+  // both map onto the same 4 visual cards (definition, keyPoints, example,
+  // summary) so the existing UI works for both response types.
+  //
+  // Mapping:
+  //   DEFINITION:   ↔  WHAT I SEE:        → sections.definition
+  //   KEY CONCEPTS: ↔  ANSWER:            → sections.keyPoints
+  //   REAL-WORLD EXAMPLE: ↔ STEP-BY-STEP: → sections.example
+  //   SUMMARY:      ↔  WHY THIS WORKS:    → sections.summary
+  const STOP = "(?=KEY CONCEPTS:|KEY IDEAS:|KEY POINTS:|REAL-WORLD EXAMPLE:|EXAMPLE:|SUMMARY:|REMEMBER THIS:|ANSWER:|STEP-BY-STEP:|WHY THIS WORKS:|WHAT I SEE:|$)";
+
+  // First (intro) section: DEFINITION or WHAT I SEE
+  const defMatch = content.match(new RegExp(`(?:DEFINITION:|WHAT I SEE:)\\s*([\\s\\S]*?)${STOP}`, "i"));
   if (defMatch && defMatch[1]) sections.definition = defMatch[1].trim();
 
-  // Try to find KEY CONCEPTS/IDEAS/POINTS section
-  const keyMatch = content.match(/(?:KEY CONCEPTS:|KEY IDEAS:|KEY POINTS:)\s*([\s\S]*?)(?=REAL-WORLD EXAMPLE:|EXAMPLE:|SUMMARY:|REMEMBER THIS:|$)/i);
+  // Second section: KEY CONCEPTS variants or ANSWER
+  const keyMatch = content.match(new RegExp(`(?:KEY CONCEPTS:|KEY IDEAS:|KEY POINTS:|ANSWER:)\\s*([\\s\\S]*?)${STOP}`, "i"));
   if (keyMatch && keyMatch[1]) sections.keyPoints = keyMatch[1].trim();
 
-  // Try to find REAL-WORLD EXAMPLE section
-  const exampleMatch = content.match(/(?:REAL-WORLD EXAMPLE:|EXAMPLE:)\s*([\s\S]*?)(?=SUMMARY:|REMEMBER THIS:|$)/i);
+  // Third section: REAL-WORLD EXAMPLE / EXAMPLE or STEP-BY-STEP
+  const exampleMatch = content.match(new RegExp(`(?:REAL-WORLD EXAMPLE:|EXAMPLE:|STEP-BY-STEP:)\\s*([\\s\\S]*?)${STOP}`, "i"));
   if (exampleMatch && exampleMatch[1]) sections.example = exampleMatch[1].trim();
 
-  // Try to find SUMMARY/REMEMBER section
-  const summaryMatch = content.match(/(?:SUMMARY:|REMEMBER THIS:)\s*([\s\S]*?)$/i);
+  // Fourth section: SUMMARY / REMEMBER THIS or WHY THIS WORKS
+  const summaryMatch = content.match(/(?:SUMMARY:|REMEMBER THIS:|WHY THIS WORKS:)\s*([\s\S]*?)$/i);
   if (summaryMatch && summaryMatch[1]) sections.summary = summaryMatch[1].trim();
 
   // Return sections only if we found at least one section
@@ -3778,7 +3790,12 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
       });
       const data = await res.json();
       const answer = data?.answer || "Sorry, I couldn't read the photo. Try again.";
-      setMessages(m => [...m, { role:"bot", content: answer }]);
+      // Parse the photo response into structured sections so it renders
+      // in the same 4-card layout as a lesson. parseSections recognizes
+      // both lesson labels (DEFINITION/KEY CONCEPTS/EXAMPLE/SUMMARY) AND
+      // photo-solve labels (WHAT I SEE/ANSWER/STEP-BY-STEP/WHY THIS WORKS).
+      const sections = parseSections(answer);
+      setMessages(m => [...m, { role:"bot", content: answer, sections, topic: "Photo solution" }]);
     } catch (e) {
       setMessages(m => [...m, { role:"bot", content: "📷 Couldn't reach the photo solver. Please check your connection and retry." }]);
     } finally {
