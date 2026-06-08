@@ -517,6 +517,48 @@ CRITICAL FORMATTING RULE: The section LABELS — DEFINITION:, KEY CONCEPTS:, REA
         messages.extend(history[-6:])
     messages.append({"role": "user", "content": f"Explain '{topic}' for {grade} students learning {subject}."})
 
+    # Prefer Gemini streaming when (a) CBSE chapter is in context AND
+    # (b) GEMINI_API_KEY is configured. Gemini has better NCERT memorisation
+    # so CBSE lessons stay accurate, and streaming makes the wait feel
+    # short (text appears word-by-word instead of after the full
+    # generation completes).
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    use_gemini = bool(cbse_block) and bool(gemini_key)
+    if use_gemini:
+        try:
+            from google import genai as _genai
+            from google.genai import types as _gtypes
+            gclient = _genai.Client(api_key=gemini_key)
+            system_parts = [m["content"] for m in messages if m.get("role") == "system"]
+            g_contents = []
+            for m in messages:
+                role = m.get("role", "user")
+                if role == "system":
+                    continue
+                if role == "assistant":
+                    role = "model"
+                if role not in ("user", "model"):
+                    role = "user"
+                g_contents.append({"role": role, "parts": [{"text": m.get("content", "")}]})
+            cfg = _gtypes.GenerateContentConfig(
+                system_instruction="\n\n".join(system_parts) if system_parts else None,
+                temperature=0.7,
+                max_output_tokens=1200,
+                thinking_config=_gtypes.ThinkingConfig(thinking_budget=0),
+            )
+            stream = gclient.models.generate_content_stream(
+                model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"),
+                contents=g_contents,
+                config=cfg,
+            )
+            for chunk in stream:
+                if getattr(chunk, "text", None):
+                    yield chunk.text
+            return
+        except Exception as e:
+            print(f"[stream] Gemini streaming failed: {e} — falling through to Groq")
+
+    # Fallback: Groq streaming (used for non-CBSE topics or when Gemini fails)
     stream = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=messages,

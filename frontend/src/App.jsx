@@ -3612,7 +3612,10 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
     };
   };
 
-  // Choose a topic and start the lesson
+  // Choose a topic and start the lesson — uses SSE streaming so the
+  // lesson text appears word-by-word as it generates. This makes the
+  // perceived wait much shorter than the previous "wait 5-30s then see
+  // everything" pattern, especially on Render free-tier cold starts.
   const chooseTopic = (topic) => {
     setActiveTopic(topic);
     setShowTopicMenu(false);
@@ -3629,19 +3632,58 @@ function SubjectPage({ profile, onHome, onUpdateProfile }) {
           content: m.content || ''
         }));
 
-        const res = await fetch(`${API}/api/mcp/explain-topic`, {
+        const res = await fetch(`${API}/api/mcp/explain-topic-stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subject: activeSubject, grade: profile.grade, topic, history })
+          body: JSON.stringify({
+            subject: activeSubject,
+            grade: profile.grade,
+            topic,
+            chapter: profile.chapter || null,
+            history,
+          })
         });
 
-        if (!res.ok) throw new Error("Explain failed");
+        if (!res.ok || !res.body) throw new Error("Explain stream failed");
 
-        const data = await res.json();
-        const explanation = data.explanation || '';
-        const backendSections = data.sections && Object.keys(data.sections).length > 0 ? data.sections : null;
-        const sections = backendSections || parseSections(explanation);
+        // SSE reader: backend emits `data: {"text": "..."}\n\n` per chunk
+        // and `data: [DONE]\n\n` at the end. Accumulate into `full` and
+        // setMessages on every chunk so the UI re-renders progressively.
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let full = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+          for (const ev of events) {
+            const line = ev.trim();
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (payload === "[DONE]") continue;
+            try {
+              const json = JSON.parse(payload);
+              if (json.text) {
+                full += json.text;
+                // Update the streaming message in place
+                setMessages(prev => {
+                  const copy = [...prev];
+                  if (copy.length && copy[copy.length - 1].role === "bot") {
+                    copy[copy.length - 1] = { ...copy[copy.length - 1], content: full };
+                  }
+                  return copy;
+                });
+              }
+            } catch { /* ignore non-JSON events */ }
+          }
+        }
 
+        // Final parse: turn accumulated text into structured sections
+        const explanation = full;
+        const sections = parseSections(explanation);
         setMessages([{ role: 'bot', topic, content: explanation, sections, streaming: false }]);
 
         // Load related topics via Voyage AI semantic search
